@@ -24,7 +24,7 @@ import os
 import logging
 import itertools
 import math
-import remove_duplicates
+from .remove_duplicates import remove_duplicates
 
 Footprint = namedtuple('Footprint', ['ref', 'fp', 'fp_id', 'sheet_id', 'filename'])
 logger = logging.getLogger(__name__)
@@ -865,7 +865,7 @@ class Replicator:
 
     def removing_duplicates(self):
         pass
-        remove_duplicates.remove_duplicates(self.board)
+        remove_duplicates(self.board)
 
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
                          containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked):

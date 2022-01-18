@@ -24,6 +24,7 @@ import pcbnew
 import os
 import logging
 import sys
+import time
 from .replicate_layout_GUI import ReplicateLayoutGUI
 from .replicate_layout import Replicator
 
@@ -51,24 +52,199 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         # DO NOTHING
         pass
 
-    def __init__(self, parent, placer, ref_fp, user_units):
+    def __init__(self, parent, replicator, fp_ref, logger):
         super(ReplicateLayoutDialog, self).__init__(parent)
-        pass
+
+        self.logger = logger
+
+        self.replicator = replicator
+        self.src_anchor_fp = self.replicator.get_fp_by_ref(fp_ref)
+        self.levels = self.src_anchor_fp.filename
+
+        # clear levels
+        self.list_levels.Clear()
+        self.list_levels.AppendItems(self.levels)
+
+        self.src_footprints = []
 
     def level_changed(self, event):
-        pass
+        index = self.list_levels.GetSelection()
+        list_sheets_choices = self.replicator.get_sheets_to_replicate(self.src_anchor_fp,
+                                                                      self.src_anchor_fp.sheet_id[index])
+
+        # clear highlight on all footprints on selected level
+        for fp in self.src_footprints:
+            fp_clear_highlight(fp)
+        pcbnew.Refresh()
+
+        # get anchor footprints
+        anchor_footprints = self.replicator.get_list_of_footprints_with_same_id(self.src_anchor_fp.fp_id)
+        # find matching anchors to matching sheets
+        ref_list = []
+        for sheet in list_sheets_choices:
+            for pf in anchor_footprints:
+                if "/".join(sheet) in "/".join(pf.sheet_id):
+                    ref_list.append(pf.ref)
+                    break
+
+        sheets_for_list = ['/'.join(x[0]) + " (" + x[1] + ")" for x in zip(list_sheets_choices, ref_list)]
+        # clear levels
+        self.list_sheets.Clear()
+        self.list_sheets.AppendItems(sheets_for_list)
+
+        # by default select all sheets
+        number_of_items = self.list_sheets.GetCount()
+        for i in range(number_of_items):
+            self.list_sheets.Select(i)
+
+        # get all source footprints on selected level
+        src_footprints = self.replicator.get_footprints_on_sheet(self.src_anchor_fp.sheet_id[:index + 1])
+        self.src_footprints = [x.fp for x in src_footprints]
+
+        # highlight all footprints on selected level
+        for fp in self.src_footprints:
+            fp_set_highlight(fp)
+        pcbnew.Refresh()
+
         event.Skip()
 
     def on_ok(self, event):
-        pass
+        selected_items = self.list_sheets.GetSelections()
+        selected_names = []
+        for item in selected_items:
+            selected_names.append(self.list_sheets.GetString(item))
+
+        # grab checkboxes
+        replicate_containing_only = not self.chkbox_intersecting.GetValue()
+        remove_existing_nets_zones = self.chkbox_remove.GetValue()
+        rep_tracks = self.chkbox_tracks.GetValue()
+        rep_zones = self.chkbox_zones.GetValue()
+        rep_text = self.chkbox_text.GetValue()
+        rep_drawings = self.chkbox_drawings.GetValue()
+        remove_duplicates = self.chkbox_remove_duplicates.GetValue()
+        rep_locked = self.chkbox_locked.GetValue()
+
+        # failsafe sometimes on my machine wx does not generate a listbox event
+        level = self.list_levels.GetSelection()
+        selection_indices = self.list_sheets.GetSelections()
+        sheets_on_a_level = self.replicator.get_sheets_to_replicate(self.src_anchor_fp,
+                                                                    self.src_anchor_fp.sheet_id[level])
+        dst_sheets = [sheets_on_a_level[i] for i in selection_indices]
+
+        # check if all the destination anchor footprints are on the same layer as source anchor footprint
+        # first get all the anchor footprints
+        all_dst_footprints = []
+        for sheet in dst_sheets:
+            all_dst_footprints.extend(self.replicator.get_footprints_on_sheet(sheet))
+        dst_anchor_footprints = [x for x in all_dst_footprints if x.fp_id == self.src_anchor_fp.fp_id]
+
+        # then check if all of them are on the same layer
+        if not all(self.src_anchor_fp.fp.IsFlipped() == fp.fp.IsFlipped() for fp in dst_anchor_footprints):
+            # clear highlight on all footprints on selected level
+            for fp in self.src_footprints:
+                fp_clear_highlight(fp)
+            pcbnew.Refresh()
+
+            caption = 'Replicate Layout'
+            message = "Destination anchor footprints must be on the same layer as source anchor footprint!"
+            dlg = wx.MessageDialog(self, message, caption, wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            logging.shutdown()
+            self.Destroy()
+            return
+
+        # replicate now
+        self.logger.info("Replicating layout")
+
+        self.start_time = time.time()
+        self.last_time = self.start_time
+        self.progress_dlg = wx.ProgressDialog("Preparing for replication", "Starting plugin", maximum=100)
+        self.progress_dlg.Show()
+        self.progress_dlg.ToggleWindowStyle(wx.STAY_ON_TOP)
+        self.Hide()
+
+        try:
+            # update progress dialog
+            self.replicator.update_progress = self.update_progress
+            self.replicator.replicate_layout(self.src_anchor_fp, self.src_anchor_fp.sheet_id[0:level + 1],
+                                             dst_sheets,
+                                             containing=replicate_containing_only,
+                                             remove=remove_existing_nets_zones,
+                                             tracks=rep_tracks,
+                                             zones=rep_zones,
+                                             text=rep_text,
+                                             drawings=rep_drawings,
+                                             rm_duplicates=remove_duplicates,
+                                             rep_locked=rep_locked)
+
+            self.logger.info("Replication complete")
+            # clear highlight on all footprints on selected level
+            for fp in self.src_footprints:
+                fp_clear_highlight(fp)
+            pcbnew.Refresh()
+
+            logging.shutdown()
+            self.progress_dlg.Destroy()
+            self.Destroy()
+        except LookupError as exception:
+            # clear highlight on all footprints on selected level
+            for fp in self.src_footprints:
+                fp_clear_highlight(fp)
+            pcbnew.Refresh()
+
+            caption = 'Replicate Layout'
+            message = str(exception)
+            dlg = wx.MessageDialog(self, message, caption, wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            logging.shutdown()
+            self.progress_dlg.Destroy()
+            self.Destroy()
+            return
+        except Exception:
+            # clear highlight on all footprints on selected level
+            for fp in self.src_footprints:
+                fp_clear_highlight(fp)
+            pcbnew.Refresh()
+
+            self.logger.exception("Fatal error when running Replicate layoue plugin")
+            caption = 'Replicate Layout'
+            message = "Fatal error when running replicator.\n" \
+                      + "You can raise an issue on GiHub page.\n" \
+                      + "Please attach the replicate_layout.log which you should find in the project folder."
+            dlg = wx.MessageDialog(self, message, caption, wx.OK | wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
+            logging.shutdown()
+            self.progress_dlg.Destroy()
+            self.Destroy()
+            return
+
         event.Skip()
 
     def on_cancel(self, event):
-        pass
+        # clear highlight on all footprints on selected level
+        for fp in self.src_footprints:
+            fp_clear_highlight(fp)
+        pcbnew.Refresh()
+
+        self.logger.info("User canceled the dialog")
+        logging.shutdown()
         event.Skip()
 
-    def update_progress(self):
-        pass
+    def update_progress(self, stage, percentage, message=None):
+        current_time = time.time()
+        # update GUI only every 10 ms
+        i = int(percentage * 100)
+        if message is not None:
+            logging.info("updating GUI message: " + repr(message))
+            self.progress_dlg.Update(i, message)
+        if (current_time - self.last_time) > 0.01:
+            self.last_time = current_time
+            delta_time = self.last_time - self.start_time
+            logging.info("updating GUI with: " + repr(i))
+            self.progress_dlg.Update(i)
 
 
 class ReplicateLayout(pcbnew.ActionPlugin):
@@ -217,7 +393,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         dlg.ShowModal()
 
-        # clear highlight on all modules on selected level
+        # clear highlight on all footprints on selected level
         for fp in dlg.src_footprints:
             fp_clear_highlight(fp)
         pcbnew.Refresh()
