@@ -138,22 +138,6 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             all_dst_footprints.extend(self.replicator.get_footprints_on_sheet(sheet))
         dst_anchor_footprints = [x for x in all_dst_footprints if x.fp_id == self.src_anchor_fp.fp_id]
 
-        # then check if all of them are on the same layer
-        if not all(self.src_anchor_fp.fp.IsFlipped() == fp.fp.IsFlipped() for fp in dst_anchor_footprints):
-            # clear highlight on all footprints on selected level
-            for fp in self.src_footprints:
-                fp_clear_highlight(fp)
-            pcbnew.Refresh()
-
-            caption = 'Replicate Layout'
-            message = "Destination anchor footprints must be on the same layer as source anchor footprint!"
-            dlg = wx.MessageDialog(self, message, caption, wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
-            logging.shutdown()
-            self.Destroy()
-            return
-
         # replicate now
         self.logger.info("Replicating layout")
 
@@ -186,7 +170,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
 
             logging.shutdown()
             self.progress_dlg.Destroy()
-            self.Destroy()
+            event.Skip()
+            self.EndModal(True)
         except LookupError as exception:
             # clear highlight on all footprints on selected level
             for fp in self.src_footprints:
@@ -200,7 +185,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             dlg.Destroy()
             logging.shutdown()
             self.progress_dlg.Destroy()
-            self.Destroy()
+            event.Skip()
+            self.EndModal(False)
             return
         except Exception:
             # clear highlight on all footprints on selected level
@@ -218,10 +204,10 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             dlg.Destroy()
             logging.shutdown()
             self.progress_dlg.Destroy()
-            self.Destroy()
+            event.Skip()
+            self.EndModal(False)
             return
 
-        event.Skip()
 
     def on_cancel(self, event):
         # clear highlight on all footprints on selected level
@@ -232,6 +218,7 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         self.logger.info("User canceled the dialog")
         logging.shutdown()
         event.Skip()
+        self.EndModal(False)
 
     def update_progress(self, stage, percentage, message=None):
         current_time = time.time()
@@ -392,6 +379,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         dlg.SetPosition(dialog_position)
 
         dlg.ShowModal()
+        dlg.Destroy()
 
         # clear highlight on all footprints on selected level
         for fp in dlg.src_footprints:
