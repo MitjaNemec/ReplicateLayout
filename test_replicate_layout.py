@@ -64,6 +64,19 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     return compare_boards.compare_boards(out_filename, test_filename)
 
 
+class TestText(unittest.TestCase):
+    def setUp(self):
+        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_fp_text"))
+
+    def test_inner(self):
+        logger.info("Testing text placement")
+        input_filename = 'replicate_layout_fp_text.kicad_pcb'
+        test_filename = input_filename.split('.')[0] + "_test_inner" + ".kicad_pcb"
+        err = test_file(input_filename, test_filename, 'R201', level=0, sheets=(0,), containing=False, remove=True)
+        # self.assertEqual(err, 0, "inner levels failed")
+
+
+@unittest.SkipTest
 class TestByRef(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
@@ -72,10 +85,9 @@ class TestByRef(unittest.TestCase):
         logger.info("Testing multiple hierarchy - inner levels")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_test_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'Q301', level=1, sheets=(1, 2), containing=False, remove=False)
+        err = test_file(input_filename, test_filename, 'Q301', level=1, sheets=(1, 3), containing=False, remove=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
-    @unittest.SkipTest
     def test_inner_level(self):
         logger.info("Testing multiple hierarchy - inner levels source on a different hierarchical level")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
@@ -83,7 +95,6 @@ class TestByRef(unittest.TestCase):
         err = test_file(input_filename, test_filename, 'Q1401', level=0, sheets=(2, 3), containing=False, remove=False)
         # self.assertEqual(err, 0, "inner levels from bottom failed")
 
-    @unittest.SkipTest
     def test_outer(self):
         logger.info("Testing multiple hierarchy - outer levels")
         input_filename = 'replicate_layout_test_project.kicad_pcb'

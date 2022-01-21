@@ -24,7 +24,7 @@ import os
 import logging
 import itertools
 import math
-from .remove_duplicates import remove_duplicates
+from remove_duplicates import remove_duplicates
 
 Footprint = namedtuple('Footprint', ['ref', 'fp', 'fp_id', 'sheet_id', 'filename'])
 logger = logging.getLogger(__name__)
@@ -584,23 +584,23 @@ class Replicator:
 
                 # get footprint to clone position
                 src_fp_orientation = src_fp.fp.GetOrientationDegrees()
-                src_fp_position = src_fp.fp.GetPosition()
+                src_fp_pos = src_fp.fp.GetPosition()
                 # get relative position with respect to source anchor
-                src_anchor_position = self.src_anchor_fp.fp.GetPosition()
-                src_fp_delta_position = src_fp_position - src_anchor_position
+                src_anchor_pos = self.src_anchor_fp.fp.GetPosition()
+                src_fp_flipped = src_fp.fp.IsFlipped()
+                src_fp_delta_pos = src_fp_pos - src_anchor_pos
 
                 # new orientation is simple
                 new_orientation = src_fp_orientation - anchor_delta_angle
-                old_position = src_fp_delta_position + dst_anchor_fp_position
-                new_position = rotate_around_point(old_position, dst_anchor_fp_position, anchor_delta_angle)
+                old_pos = src_fp_delta_pos + dst_anchor_fp_position
+                new_pos = rotate_around_point(old_pos, dst_anchor_fp_position, anchor_delta_angle)
 
                 # convert to tuple of integers
-                new_position = [int(x) for x in new_position]
+                new_pos = [int(x) for x in new_pos]
                 # place current footprint - only if current footprint is not also the anchor
                 if dst_fp.ref != dst_anchor_fp.ref:
-                    dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_position))
+                    dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_pos))
 
-                    src_fp_flipped = src_fp.fp.IsFlipped()
                     if dst_fp.fp.IsFlipped() != src_fp_flipped:
                         dst_fp.fp.Flip(dst_fp.fp.GetPosition(), False)
                     dst_fp.fp.SetOrientationDegrees(new_orientation)
@@ -612,6 +612,20 @@ class Replicator:
                 dst_fp.fp.SetLocalSolderPasteMarginRatio(src_fp.fp.GetLocalSolderPasteMarginRatio())
                 dst_fp.fp.SetZoneConnection(src_fp.fp.GetZoneConnection())
 
+                # flip if dst anchor is flipped with regards to src anchor
+                if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
+                    # ignore anchor fp
+                    if dst_anchor_fp != dst_fp:
+                        dst_fp.fp.Flip(dst_anchor_fp_position, False)
+                        # also need to change the angle
+                        new_pos = rotate_around_point(dst_fp.fp.GetPosition(), dst_anchor_fp_position, anchor_delta_angle - dst_anchor_fp_angle)
+                        dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_pos))
+                        new_orientation = dst_fp.fp.GetOrientationDegrees() - (anchor_delta_angle - dst_anchor_fp_angle)
+                        dst_fp.fp.SetOrientationDegrees(new_orientation)
+
+                dst_fp_orientation = dst_fp.fp.GetOrientationDegrees()
+                dst_fp_flipped = dst_fp.fp.IsFlipped()
+
                 # replicate also text layout - also for anchor footprint. I am counting that the user is lazy and will
                 # just position the anchors and will not edit them
                 # get footprint text
@@ -619,89 +633,40 @@ class Replicator:
                 dst_fp_text_items = self.get_footprint_text_items(dst_fp)
                 # check if both footprints (source and the one for replication) have the same number of text items
                 if len(src_fp_text_items) != len(dst_fp_text_items):
-                    raise LookupError("Source footprint: " + src_fp.ref + " has different number of text items (" + repr(
-                        len(src_fp_text_items))
-                                      + ")\nthan footprint for replication: " + dst_fp.ref + " (" + repr(
-                        len(dst_fp_text_items)) + ")")
+                    raise LookupError(
+                        "Source footprint: " + src_fp.ref + " has different number of text items (" + repr(
+                            len(src_fp_text_items))
+                        + ")\nthan footprint for replication: " + dst_fp.ref + " (" + repr(
+                            len(dst_fp_text_items)) + ")")
+
                 # replicate each text item
+                src_text: pcbnew.FP_TEXT
+                dst_text: pcbnew.FP_TEXT
                 for src_text in src_fp_text_items:
-                    index = src_fp_text_items.index(src_text)
-                    src_text_position = src_text.GetPosition() + anchor_delta_pos
+                    txt_index = src_fp_text_items.index(src_text)
+                    src_txt_pos = src_text.GetPosition()
+                    src_txt_rel_pos = src_txt_pos - src_fp.fp.GetBoundingBox(False, False).Centre()
+                    src_txt_orientation = src_text.GetTextAngle()
+                    delta_angle = dst_fp_orientation - src_fp_orientation
 
-                    if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped() and dst_anchor_fp == dst_fp:
-                        # set layer
-                        dst_fp_text_items[index].SetLayer(src_text.GetLayer())
+                    dst_fp_pos = dst_fp.fp.GetBoundingBox(False, False).Centre()
+                    dst_text = dst_fp_text_items[txt_index]
 
-                        new_position = rotate_around_point(src_text_position, dst_anchor_fp_position,
-                                                           anchor_delta_angle)
 
-                        # convert to tuple of integers
-                        new_position = [int(x) for x in new_position]
-                        dst_fp_text_items[index].SetPosition(pcbnew.wxPoint(*new_position))
-                        dst_fp_text_items[index].Flip(dst_anchor_fp_position, False)
-
-                        # set orientation
-                        dst_fp_text_items[index].SetTextAngle(src_text.GetTextAngle())
-                        # thickness
-                        dst_fp_text_items[index].SetTextThickness(src_text.GetTextThickness())
-                        # width
-                        dst_fp_text_items[index].SetTextWidth(src_text.GetTextWidth())
-                        # height
-                        dst_fp_text_items[index].SetTextHeight(src_text.GetTextHeight())
-                        # rest of the parameters
-                        # TODO check SetEffects method, might be better
-                        dst_fp_text_items[index].SetItalic(src_text.IsItalic())
-                        dst_fp_text_items[index].SetBold(src_text.IsBold())
-                        if src_text.IsMirrored():
-                            dst_fp_text_items[index].SetMirrored(False)
-                        else:
-                            dst_fp_text_items[index].SetMirrored(True)
-                        dst_fp_text_items[index].SetMultilineAllowed(src_text.IsMultilineAllowed())
-                        dst_fp_text_items[index].SetHorizJustify(src_text.GetHorizJustify())
-                        dst_fp_text_items[index].SetVertJustify(src_text.GetVertJustify())
-                        dst_fp_text_items[index].SetKeepUpright(src_text.IsKeepUpright())
-                        # set visibility
-                        dst_fp_text_items[index].SetVisible(src_text.IsVisible())
+                    if src_fp_flipped != dst_fp_flipped:
+                        if dst_fp.ref == "R302" or dst_fp.ref == "R303":
+                            a = 2
+                        angle = delta_angle - 180
+                        dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -angle)
+                        dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
+                        dst_text.SetPosition(dst_txt_pos)
+                        dst_text.SetTextAngle(src_txt_orientation)
                     else:
-                        # set layer
-                        dst_fp_text_items[index].SetLayer(src_text.GetLayer())
+                        dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, delta_angle)
+                        dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
+                        dst_text.SetPosition(dst_txt_pos)
+                        dst_text.SetTextAngle(src_txt_orientation - delta_angle * 10)
 
-                        new_position = rotate_around_point(src_text_position, dst_anchor_fp_position,
-                                                           anchor_delta_angle)
-                        # convert to tuple of integers
-                        new_position = [int(x) for x in new_position]
-                        dst_fp_text_items[index].SetPosition(pcbnew.wxPoint(*new_position))
-
-                        # set orientation
-                        dst_fp_text_items[index].SetTextAngle(src_text.GetTextAngle())
-                        # thickness
-                        dst_fp_text_items[index].SetTextThickness(src_text.GetTextThickness())
-                        # width
-                        dst_fp_text_items[index].SetTextWidth(src_text.GetTextWidth())
-                        # height
-                        dst_fp_text_items[index].SetTextHeight(src_text.GetTextHeight())
-                        # rest of the parameters
-                        # TODO check SetEffects method, might be better
-                        dst_fp_text_items[index].SetItalic(src_text.IsItalic())
-                        dst_fp_text_items[index].SetBold(src_text.IsBold())
-                        dst_fp_text_items[index].SetMirrored(src_text.IsMirrored())
-                        dst_fp_text_items[index].SetMultilineAllowed(src_text.IsMultilineAllowed())
-                        dst_fp_text_items[index].SetHorizJustify(src_text.GetHorizJustify())
-                        dst_fp_text_items[index].SetVertJustify(src_text.GetVertJustify())
-                        dst_fp_text_items[index].SetKeepUpright(src_text.IsKeepUpright())
-                        # set visibility
-                        dst_fp_text_items[index].SetVisible(src_text.IsVisible())
-
-                # flip if dst anchor is flipped with regards to src anchor
-                if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
-                    # ignore anchor fp
-                    if dst_anchor_fp != dst_fp:
-                        dst_fp.fp.Flip(dst_anchor_fp_position, False)
-                        # also need to change the angle
-                        new_position = rotate_around_point(dst_fp.fp.GetPosition(), dst_anchor_fp_position, anchor_delta_angle - dst_anchor_fp_angle)
-                        dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_position))
-                        new_orientation = dst_fp.fp.GetOrientationDegrees() - (anchor_delta_angle - dst_anchor_fp_angle)
-                        dst_fp.fp.SetOrientationDegrees(new_orientation)
 
     def replicate_tracks(self):
         logger.info("Replicating tracks")
@@ -928,7 +893,6 @@ class Replicator:
                 self.board.RemoveNative(drawing)
 
     def removing_duplicates(self):
-        pass
         remove_duplicates(self.board)
 
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
