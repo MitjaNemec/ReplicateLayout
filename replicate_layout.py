@@ -660,7 +660,7 @@ class Replicator:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        dst_text.SetTextAngle(src_txt_orientation)
+                        dst_text.SetTextAngle(-src_txt_orientation)
                     else:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
