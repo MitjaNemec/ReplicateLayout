@@ -63,7 +63,7 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
 
     return compare_boards.compare_boards(out_filename, test_filename)
 
-
+@unittest.SkipTest
 class TestText(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_fp_text"))
@@ -76,7 +76,6 @@ class TestText(unittest.TestCase):
         # self.assertEqual(err, 0, "inner levels failed")
 
 
-@unittest.SkipTest
 class TestByRef(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
