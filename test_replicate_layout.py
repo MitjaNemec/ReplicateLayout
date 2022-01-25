@@ -5,7 +5,7 @@ import pcbnew
 import logging
 import sys
 import os
-import compare_boards
+from compare_boards import compare_boards
 from replicate_layout import Replicator
 
 
@@ -47,23 +47,16 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     for sheet in dst_sheets:
         all_sheet_footprints.extend(replicator.get_footprints_on_sheet(sheet))
     anchor_fp = [x for x in all_sheet_footprints if x.fp_id == src_anchor_fp.fp_id]
-    """
-    if all(src_anchor_fp.fp.IsFlipped() == dst_mod.fp.IsFlipped() for dst_mod in anchor_fp):
-        a = 2
-    else:
-        assert (2 == 3), "Destination anchor footprints are not on the same layer as source anchor footprint"
-    """
 
     # now we are ready for replication
     replicator.replicate_layout(src_anchor_fp, src_anchor_fp.sheet_id[0:index + 1], dst_sheets,
                                 containing=containing, remove=remove, rm_duplicates=True,
                                 tracks=True, zones=True, text=True, drawings=True, rep_locked=True)
-    out_filename = test_filename.replace("test", "temp")
+    out_filename = test_filename.replace("ref", "temp")
     pcbnew.SaveBoard(out_filename, board)
 
-    return compare_boards.compare_boards(out_filename, test_filename)
+    return compare_boards(out_filename, test_filename)
 
-@unittest.SkipTest
 class TestText(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_fp_text"))
@@ -71,11 +64,11 @@ class TestText(unittest.TestCase):
     def test_inner(self):
         logger.info("Testing text placement")
         input_filename = 'replicate_layout_fp_text.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_test_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'R201', level=0, sheets=(0,), containing=False, remove=True)
+        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
+        err = test_file(input_filename, test_filename, 'R201', level=0, sheets=(0, 1), containing=False, remove=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
-
+@unittest.SkipTest
 class TestByRef(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
@@ -83,21 +76,21 @@ class TestByRef(unittest.TestCase):
     def test_inner(self):
         logger.info("Testing multiple hierarchy - inner levels")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_test_inner" + ".kicad_pcb"
+        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
         err = test_file(input_filename, test_filename, 'Q301', level=1, sheets=(1, 3), containing=False, remove=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
     def test_inner_level(self):
         logger.info("Testing multiple hierarchy - inner levels source on a different hierarchical level")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_test_inner_alt" + ".kicad_pcb"
+        test_filename = input_filename.split('.')[0] + "_ref_inner_alt" + ".kicad_pcb"
         err = test_file(input_filename, test_filename, 'Q1401', level=0, sheets=(2, 3), containing=False, remove=False)
         # self.assertEqual(err, 0, "inner levels from bottom failed")
 
     def test_outer(self):
         logger.info("Testing multiple hierarchy - outer levels")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_test_outter" + ".kicad_pcb"
+        test_filename = input_filename.split('.')[0] + "_ref_outter" + ".kicad_pcb"
         err = test_file(input_filename, test_filename, 'Q301', level=0, sheets=(0,1), containing=False, remove=False)
         # self.assertEqual(err, 0, "outer levels failed")
 

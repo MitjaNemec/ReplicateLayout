@@ -63,6 +63,12 @@ def update_progress(stage, percentage, message=None):
     print(percentage)
 
 
+def flipped_angle(angle):
+    if angle > 0:
+        return 180 - angle
+    else:
+        return -180 - angle
+
 class Replicator:
     def __init__(self, board, update_func=update_progress):
         self.board = board
@@ -539,7 +545,9 @@ class Replicator:
             # get exact anchor position
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
-            anchor_delta_angle = self.src_anchor_fp.fp.GetOrientationDegrees() - dst_anchor_fp_angle
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientationDegrees()
+
+            anchor_delta_angle = src_anchor_fp_angle - dst_anchor_fp_angle
             anchor_delta_pos = dst_anchor_fp_position - self.src_anchor_fp.fp.GetPosition()
 
             # go through all footprints
@@ -617,10 +625,17 @@ class Replicator:
                     # ignore anchor fp
                     if dst_anchor_fp != dst_fp:
                         dst_fp.fp.Flip(dst_anchor_fp_position, False)
+                        #
+                        src_fp_rel_pos = src_anchor_pos - src_fp_pos
+                        delta_angle = dst_anchor_fp_angle + src_anchor_fp_angle
+                        dst_fp_rel_pos_rot = [-src_fp_rel_pos[0], src_fp_rel_pos[1]]
+                        dst_fp_rel_pos_rot = rotate_around_center([-src_fp_rel_pos[0], src_fp_rel_pos[1]], -delta_angle)
+                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.wxPoint(dst_fp_rel_pos_rot[0], dst_fp_rel_pos_rot[1])
                         # also need to change the angle
-                        new_pos = rotate_around_point(dst_fp.fp.GetPosition(), dst_anchor_fp_position, anchor_delta_angle - dst_anchor_fp_angle)
-                        dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_pos))
-                        new_orientation = dst_fp.fp.GetOrientationDegrees() - (anchor_delta_angle - dst_anchor_fp_angle)
+                        dst_fp.fp.SetPosition(dst_fp_rel_pos)
+                        src_fp_flipped_orientation = flipped_angle(src_fp_orientation)
+                        flipped_delta = flipped_angle(src_anchor_fp_angle)-dst_anchor_fp_angle
+                        new_orientation = src_fp_flipped_orientation - flipped_delta
                         dst_fp.fp.SetOrientationDegrees(new_orientation)
 
                 dst_fp_orientation = dst_fp.fp.GetOrientationDegrees()
@@ -659,17 +674,17 @@ class Replicator:
                             a = 2
                         dst_text.Flip(dst_anchor_fp_position, False)
                         dst_txt_rel_pos = [-src_txt_rel_pos[0], src_txt_rel_pos[1]]
-                        angle = anchor_delta_angle - 180
-                        dst_txt_rel_pos_rot = rotate_around_center(dst_txt_rel_pos, angle)
+                        delta_angle = 180 + dst_anchor_fp_angle - src_anchor_fp_angle
+                        dst_txt_rel_pos_rot = rotate_around_center(dst_txt_rel_pos, delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1])
                         dst_text.SetPosition(dst_txt_pos)
                         dst_text.SetTextAngle(-src_txt_orientation)
                         dst_text.SetMirrored(not src_text.IsMirrored())
                     else:
-                        dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, delta_angle)
+                        dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        dst_text.SetTextAngle(src_txt_orientation - delta_angle * 10)
+                        #dst_text.SetTextAngle(src_txt_orientation - delta_angle * 10)
                         dst_text.SetMirrored(src_text.IsMirrored())
 
                     # set text parameters
