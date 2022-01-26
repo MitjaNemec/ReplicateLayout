@@ -670,13 +670,10 @@ class Replicator:
                     dst_text.SetLayer(src_text.GetLayer())
                     # properly set position
                     if src_fp_flipped != dst_fp_flipped:
-                        if dst_fp.ref == "R302":
-                            a = 2
                         dst_text.Flip(dst_anchor_fp_position, False)
                         dst_txt_rel_pos = [-src_txt_rel_pos[0], src_txt_rel_pos[1]]
                         delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
                         dst_txt_rel_pos_rot = rotate_around_center(dst_txt_rel_pos, delta_angle)
-                        # dst_txt_rel_pos_rot = dst_txt_rel_pos
                         dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1])
                         dst_text.SetPosition(dst_txt_pos)
                         dst_text.SetTextAngle(-src_txt_orientation)
@@ -685,7 +682,8 @@ class Replicator:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        #dst_text.SetTextAngle(src_txt_orientation - delta_angle * 10)
+                        a = dst_fp.ref
+                        dst_text.SetTextAngle(src_txt_orientation)
                         dst_text.SetMirrored(src_text.IsMirrored())
 
                     # set text parameters
@@ -744,13 +742,19 @@ class Replicator:
 
                     # make a duplicate, move it, rotate it, select proper net and add it to the board
                     new_track = track.Duplicate()
-                    new_track.Rotate(src_anchor_fp_position, delta_orientation)
-                    new_track.Move(move_vector)
                     new_track.SetNetCode(to_net_code)
                     new_track.SetNet(to_net_item)
+                    new_track.Move(move_vector)
                     if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                         new_track.Flip(dst_anchor_fp_position, False)
-                        new_track.Rotate(dst_anchor_fp_position, 2*delta_orientation - 3600)
+                        src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
+                        delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                        rot_angle = delta_angle - 1800
+                        new_track.Rotate(dst_anchor_fp_position, -rot_angle)
+                    else:
+                        new_track.Rotate(dst_anchor_fp_position, delta_orientation)
+                        pass
+
                     self.board.Add(new_track)
 
     def replicate_zones(self):
@@ -813,13 +817,17 @@ class Replicator:
 
                 # make a duplicate, move it, rotate it, select proper net and add it to the board
                 new_zone = zone.Duplicate()
-                new_zone.Rotate(src_anchor_fp_position, delta_orientation)
                 new_zone.Move(move_vector)
                 new_zone.SetNetCode(to_net_code)
                 new_zone.SetNet(to_net_item)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_zone.Flip(dst_anchor_fp_position, False)
-                    new_zone.Rotate(dst_anchor_fp_position, 2 * delta_orientation - 3600)
+                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
+                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    rot_angle = delta_angle - 1800
+                    new_zone.Rotate(dst_anchor_fp_position, -rot_angle)
+                else:
+                    new_zone.Rotate(dst_anchor_fp_position, delta_orientation)
                 self.board.Add(new_zone)
 
     def replicate_text(self):
@@ -853,10 +861,15 @@ class Replicator:
 
                 new_text = text.Duplicate()
                 new_text.Move(move_vector)
-                new_text.Rotate(dst_anchor_fp_position, delta_orientation)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_text.Flip(dst_anchor_fp_position, False)
-                    new_text.Rotate(dst_anchor_fp_position, 2 * delta_orientation - 3600)
+                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
+                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    rot_angle = delta_angle - 1800
+                    new_text.Rotate(dst_anchor_fp_position, -rot_angle)
+                else:
+                    new_text.Rotate(dst_anchor_fp_position, delta_orientation)
+
                 self.board.Add(new_text)
 
     def replicate_drawings(self):
@@ -889,11 +902,17 @@ class Replicator:
 
                 new_drawing = drawing.Duplicate()
                 new_drawing.Move(move_vector)
-                new_drawing.Rotate(dst_anchor_fp_position, delta_orientation)
 
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
+
                     new_drawing.Flip(dst_anchor_fp_position, False)
-                    new_drawing.Rotate(dst_anchor_fp_position, 2 * delta_orientation - 3600)
+                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
+                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    rot_angle = delta_angle - 1800
+                    new_drawing.Rotate(dst_anchor_fp_position, -rot_angle)
+                else:
+                    new_drawing.Rotate(dst_anchor_fp_position, delta_orientation)
+
                 self.board.Add(new_drawing)
 
     def remove_zones_tracks(self, containing):
