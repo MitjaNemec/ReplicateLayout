@@ -24,7 +24,7 @@ import os
 import logging
 import itertools
 import math
-from remove_duplicates import remove_duplicates
+from .remove_duplicates import remove_duplicates
 
 Footprint = namedtuple('Footprint', ['ref', 'fp', 'fp_id', 'sheet_id', 'filename'])
 logger = logging.getLogger(__name__)
@@ -69,6 +69,7 @@ def flipped_angle(angle):
     else:
         return -180 - angle
 
+
 class Replicator:
     def __init__(self, board, update_func=update_progress):
         self.board = board
@@ -79,6 +80,7 @@ class Replicator:
         self.level = None
         self.src_anchor_fp = None
         self.replicate_locked_items = None
+        self.src_sheet = None
         self.dst_sheets = []
         self.src_footprints = []
         self.other_footprints = []
@@ -120,12 +122,117 @@ class Replicator:
         # construct a list of all the footprints
         for fp in footprints:
             fp_tuple = Footprint(fp=fp,
-                                        fp_id=self.get_footprint_id(fp),
-                                        sheet_id=self.get_sheet_path(fp)[0],
-                                        filename=self.get_sheet_path(fp)[1],
-                                        ref=fp.GetReference())
+                                 fp_id=self.get_footprint_id(fp),
+                                 sheet_id=self.get_sheet_path(fp)[0],
+                                 filename=self.get_sheet_path(fp)[1],
+                                 ref=fp.GetReference())
             self.footprints.append(fp_tuple)
         pass
+
+    def prepare_for_replication(self, level, containing):
+        # get a list of source footprints for replication
+        logger.info("Getting the list of source footprints")
+        self.update_progress(self.stage, 0 / 8, None)
+        self.src_footprints = self.get_footprints_on_sheet(level)
+        # get the rest of the footprints
+        logger.info("Getting the list of all the remaining footprints")
+        self.update_progress(self.stage, 1 / 8, None)
+        self.other_footprints = self.get_footprints_not_on_sheet(level)
+        # get nets local to source footprints
+        logger.info("Getting nets local to source footprints")
+        self.update_progress(self.stage, 2 / 8, None)
+        self.src_local_nets = self.get_local_nets(self.src_footprints, self.other_footprints)
+        # get source bounding box
+        logger.info("Getting source bounding box")
+        self.update_progress(self.stage, 3 / 8, None)
+        self.src_bounding_box = self.get_footprints_bounding_box(self.src_footprints)
+        # get source tracks
+        logger.info("Getting source tracks")
+        self.update_progress(self.stage, 4 / 8, None)
+        self.src_tracks = self.get_tracks(self.src_bounding_box, self.src_local_nets, containing)
+        # get source zones
+        logger.info("Getting source zones")
+        self.update_progress(self.stage, 5 / 8, None)
+        self.src_zones = self.get_zones(self.src_bounding_box, containing)
+        # get source text items
+        logger.info("Getting source text items")
+        self.update_progress(self.stage, 6 / 8, None)
+        self.src_text = self.get_text_items(self.src_bounding_box, containing)
+        # get source drawings
+        logger.info("Getting source text items")
+        self.update_progress(self.stage, 7 / 8, None)
+        self.src_drawings = self.get_drawings(self.src_bounding_box, containing)
+        self.update_progress(self.stage, 8 / 8, None)
+
+    def replicate_layout(self, src_anchor_fp, level, dst_sheets,
+                         containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked):
+        logger.info("Starting replication of sheets: " + repr(dst_sheets)
+                    + "\non level: " + repr(level)
+                    + "\nwith tracks=" + repr(tracks) + ", zone=" + repr(zones) + ", text=" + repr(text)
+                    + ", containing=" + repr(containing) + ", remove=" + repr(remove) + ", locked=" + repr(rep_locked))
+
+        self.level = level
+        self.src_anchor_fp = src_anchor_fp
+        self.dst_sheets = dst_sheets
+        self.replicate_locked_items = rep_locked
+
+        # TODO required in order to construct a list of all source footprints
+        #self.src_sheet =
+        #self.src_footprints = self.get_footprints_on_sheet(self.src_sheet)
+
+        if remove:
+            self.max_stages = 2
+        else:
+            self.max_stages = 0
+        if tracks:
+            self.max_stages = self.max_stages + 1
+        if zones:
+            self.max_stages = self.max_stages + 1
+        if text:
+            self.max_stages = self.max_stages + 1
+        if drawings:
+            self.max_stages = self.max_stages + 1
+        if rm_duplicates:
+            self.max_stages = self.max_stages + 1
+
+        self.update_progress(self.stage, 0.0, "Preparing for replication")
+        self.prepare_for_replication(level, containing)
+        if remove:
+            logger.info("Removing tracks and zones, before footprint placement")
+            self.stage = 2
+            self.update_progress(self.stage, 0.0, "Removing zones and tracks")
+            self.remove_zones_tracks(containing)
+        self.stage = 3
+        self.update_progress(self.stage, 0.0, "Replicating footprints")
+        self.replicate_footprints()
+        if remove:
+            logger.info("Removing tracks and zones, after footprint placement")
+            self.stage = 4
+            self.update_progress(self.stage, 0.0, "Removing zones and tracks")
+            self.remove_zones_tracks(containing)
+        if tracks:
+            self.stage = 5
+            self.update_progress(self.stage, 0.0, "Replicating tracks")
+            self.replicate_tracks()
+        if zones:
+            self.stage = 6
+            self.update_progress(self.stage, 0.0, "Replicating zones")
+            self.replicate_zones()
+        if text:
+            self.stage = 7
+            self.update_progress(self.stage, 0.0, "Replicating text")
+            self.replicate_text()
+        if drawings:
+            self.stage = 8
+            self.update_progress(self.stage, 0.0, "Replicating drawings")
+            self.replicate_drawings()
+        if rm_duplicates:
+            self.stage = 9
+            self.update_progress(self.stage, 0.0, "Removing duplicates")
+            self.removing_duplicates()
+        # finally at the end refill the zones
+        filler = pcbnew.ZONE_FILLER(self.board)
+        filler.Fill(self.board.Zones())
 
     @staticmethod
     def get_footprint_id(footprint):
@@ -224,6 +331,14 @@ class Replicator:
             if level == fp.sheet_id[0:level_depth]:
                 footprints_on_sheet.append(fp)
         return footprints_on_sheet
+
+    @staticmethod
+    def filter_footprints_by_group(footprints, group):
+        footprints_in_group = []
+        for fp in footprints:
+            if group == fp.GetParentGroup().GetName():
+                footprints_in_group.append(fp)
+        return footprints_in_group
 
     def get_footprints_not_on_sheet(self, level):
         footprints_not_on_sheet = []
@@ -495,41 +610,6 @@ class Replicator:
 
         return net_pairs_clean, net_dict
 
-    def prepare_for_replication(self, level, containing):
-        # get a list of source footprints for replication
-        logger.info("Getting the list of source footprints")
-        self.update_progress(self.stage, 0 / 8, None)
-        self.src_footprints = self.get_footprints_on_sheet(level)
-        # get the rest of the footprints
-        logger.info("Getting the list of all the remaining footprints")
-        self.update_progress(self.stage, 1 / 8, None)
-        self.other_footprints = self.get_footprints_not_on_sheet(level)
-        # get nets local to source footprints
-        logger.info("Getting nets local to source footprints")
-        self.update_progress(self.stage, 2 / 8, None)
-        self.src_local_nets = self.get_local_nets(self.src_footprints, self.other_footprints)
-        # get source bounding box
-        logger.info("Getting source bounding box")
-        self.update_progress(self.stage, 3 / 8, None)
-        self.src_bounding_box = self.get_footprints_bounding_box(self.src_footprints)
-        # get source tracks
-        logger.info("Getting source tracks")
-        self.update_progress(self.stage, 4 / 8, None)
-        self.src_tracks = self.get_tracks(self.src_bounding_box, self.src_local_nets, containing)
-        # get source zones
-        logger.info("Getting source zones")
-        self.update_progress(self.stage, 5 / 8, None)
-        self.src_zones = self.get_zones(self.src_bounding_box, containing)
-        # get source text items
-        logger.info("Getting source text items")
-        self.update_progress(self.stage, 6 / 8, None)
-        self.src_text = self.get_text_items(self.src_bounding_box, containing)
-        # get source drawings
-        logger.info("Getting source text items")
-        self.update_progress(self.stage, 7 / 8, None)
-        self.src_drawings = self.get_drawings(self.src_bounding_box, containing)
-        self.update_progress(self.stage, 8 / 8, None)
-
     def replicate_footprints(self):
         logger.info("Replicating footprints")
         nr_sheets = len(self.dst_sheets)
@@ -551,7 +631,10 @@ class Replicator:
             anchor_delta_pos = dst_anchor_fp_position - self.src_anchor_fp.fp.GetPosition()
 
             # go through all footprints
+            # TODO swap destination for source footprints.
+            # TODO this is the first required step before implementing group feature
             dst_footprints = self.get_footprints_on_sheet(sheet)
+
             nr_footprints = len(dst_footprints)
             for fp_index in range(nr_footprints):
                 dst_fp = dst_footprints[fp_index]
@@ -946,70 +1029,5 @@ class Replicator:
     def removing_duplicates(self):
         remove_duplicates(self.board)
 
-    def replicate_layout(self, src_anchor_fp, level, dst_sheets,
-                         containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked):
-        logger.info("Starting replication of sheets: " + repr(dst_sheets)
-                    + "\non level: " + repr(level)
-                    + "\nwith tracks=" + repr(tracks) + ", zone=" + repr(zones) + ", text=" + repr(text)
-                    + ", containing=" + repr(containing) + ", remove=" + repr(remove) + ", locked=" + repr(rep_locked))
-
-        self.level = level
-        self.src_anchor_fp = src_anchor_fp
-        self.dst_sheets = dst_sheets
-        self.replicate_locked_items = rep_locked
-
-        if remove:
-            self.max_stages = 2
-        else:
-            self.max_stages = 0
-        if tracks:
-            self.max_stages = self.max_stages + 1
-        if zones:
-            self.max_stages = self.max_stages + 1
-        if text:
-            self.max_stages = self.max_stages + 1
-        if drawings:
-            self.max_stages = self.max_stages + 1
-        if rm_duplicates:
-            self.max_stages = self.max_stages + 1
-
-        self.update_progress(self.stage, 0.0, "Preparing for replication")
-        self.prepare_for_replication(level, containing)
-        if remove:
-            logger.info("Removing tracks and zones, before footprint placement")
-            self.stage = 2
-            self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(containing)
-        self.stage = 3
-        self.update_progress(self.stage, 0.0, "Replicating footprints")
-        self.replicate_footprints()
-        if remove:
-            logger.info("Removing tracks and zones, after footprint placement")
-            self.stage = 4
-            self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(containing)
-        if tracks:
-            self.stage = 5
-            self.update_progress(self.stage, 0.0, "Replicating tracks")
-            self.replicate_tracks()
-        if zones:
-            self.stage = 6
-            self.update_progress(self.stage, 0.0, "Replicating zones")
-            self.replicate_zones()
-        if text:
-            self.stage = 7
-            self.update_progress(self.stage, 0.0, "Replicating text")
-            self.replicate_text()
-        if drawings:
-            self.stage = 8
-            self.update_progress(self.stage, 0.0, "Replicating drawings")
-            self.replicate_drawings()
-        if rm_duplicates:
-            self.stage = 9
-            self.update_progress(self.stage, 0.0, "Removing duplicates")
-            self.removing_duplicates()
-        # finally at the end refill the zones
-        filler = pcbnew.ZONE_FILLER(self.board)
-        filler.Fill(self.board.Zones())
 
 

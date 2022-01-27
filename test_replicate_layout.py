@@ -51,7 +51,7 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     out_filename = test_filename.replace("ref", "temp")
     pcbnew.SaveBoard(out_filename, board)
 
-    return 0 # compare_boards(out_filename, test_filename)
+    return  compare_boards(out_filename, test_filename)
 
 @unittest.SkipTest
 class TestText(unittest.TestCase):
@@ -75,21 +75,21 @@ class TestByRef(unittest.TestCase):
         input_filename = 'replicate_layout_test_project.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
         err = test_file(input_filename, test_filename, 'Q301', level=1, sheets=(1, 3), containing=False, remove=True)
-        # self.assertEqual(err, 0, "inner levels failed")
+        self.assertEqual(err, 0, "inner levels failed")
 
     def test_inner_level(self):
         logger.info("Testing multiple hierarchy - inner levels source on a different hierarchical level")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner_alt" + ".kicad_pcb"
         err = test_file(input_filename, test_filename, 'Q1401', level=0, sheets=(2, 3), containing=False, remove=False)
-        # self.assertEqual(err, 0, "inner levels from bottom failed")
+        self.assertEqual(err, 0, "inner levels from bottom failed")
 
     def test_outer(self):
         logger.info("Testing multiple hierarchy - outer levels")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_outer" + ".kicad_pcb"
         err = test_file(input_filename, test_filename, 'Q301', level=0, sheets=(0, 1), containing=False, remove=False)
-        # self.assertEqual(err, 0, "outer levels failed")
+        self.assertEqual(err, 0, "outer levels failed")
 
 
 # for testing purposes only

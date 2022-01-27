@@ -19,7 +19,6 @@
 #  MA 02110-1301, USA.
 #
 #
-from __future__ import absolute_import, division, print_function
 import pcbnew
 import os
 import sys
@@ -224,34 +223,6 @@ def remove_duplicates(board):
     remove_duplicate_text(board)
     # remove duplicate drawings
     remove_duplicate_drawings(board)
-
-
-def main():
-    board = pcbnew.LoadBoard("multiple_hierarchy_duplicated.kicad_pcb")
-    remove_duplicates(board)
-    pcbnew.SaveBoard("multiple_hierarchy_duplicated_test.kicad_pcb", board)
-
-
-# for testing purposes only
-if __name__ == "__main__":
-    # if debugging outside of this folder change the folder
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
-
-    file_handler = logging.FileHandler(filename='delete_duplicates.log', mode='w')
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    handlers = [file_handler, stdout_handler]
-
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s %(name)s %(lineno)d:%(message)s',
-                        datefmt='%m-%d %H:%M:%S',
-                        handlers=handlers
-                        )
-
-    logger = logging.getLogger(__name__)
-    logger.info("Plugin executed with python version: " + repr(sys.version))
-    logger.info("Delete duplicates plugin started in standalone mode")
-
-    main()
 
 
 

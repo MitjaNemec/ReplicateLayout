@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#  replicatelayout.py
+#  compare_boards.py
 #
 # Copyright (C) 2018 Mitja Nemec, Stephen Walker-Weinshenker
 #
