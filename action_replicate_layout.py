@@ -123,6 +123,7 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         rep_drawings = self.chkbox_drawings.GetValue()
         remove_duplicates = self.chkbox_remove_duplicates.GetValue()
         rep_locked = self.chkbox_locked.GetValue()
+        group_only = self.chkbox_group.GetValue()
 
         # failsafe sometimes on my machine wx does not generate a listbox event
         level = self.list_levels.GetSelection()
@@ -160,7 +161,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                                              text=rep_text,
                                              drawings=rep_drawings,
                                              rm_duplicates=remove_duplicates,
-                                             rep_locked=rep_locked)
+                                             rep_locked=rep_locked,
+                                             by_group=group_only)
 
             self.logger.info("Replication complete")
             # clear highlight on all footprints on selected level
@@ -207,7 +209,6 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             event.Skip()
             self.EndModal(False)
             return
-
 
     def on_cancel(self, event):
         # clear highlight on all footprints on selected level

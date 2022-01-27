@@ -16,7 +16,7 @@ def update_progress(stage, percentage, message=None):
         print(message)
 
 
-def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets, containing, remove):
+def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets, containing, remove, by_group):
     board = pcbnew.LoadBoard(in_filename)
     # get board information
     replicator = Replicator(board, update_progress)
@@ -47,7 +47,7 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     # now we are ready for replication
     replicator.replicate_layout(src_anchor_fp, src_anchor_fp.sheet_id[0:index + 1], dst_sheets,
                                 containing=containing, remove=remove, rm_duplicates=True,
-                                tracks=True, zones=True, text=True, drawings=True, rep_locked=True)
+                                tracks=True, zones=True, text=True, drawings=True, rep_locked=True, by_group=by_group)
     out_filename = test_filename.replace("ref", "temp")
     pcbnew.SaveBoard(out_filename, board)
 
@@ -62,7 +62,8 @@ class TestText(unittest.TestCase):
         logger.info("Testing text placement")
         input_filename = 'replicate_layout_fp_text.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'R201', level=0, sheets=(0, 1), containing=False, remove=True)
+        err = test_file(input_filename, test_filename, 'R201', level=0, sheets=(0, 1),
+                        containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
 
@@ -74,21 +75,24 @@ class TestByRef(unittest.TestCase):
         logger.info("Testing multiple hierarchy - inner levels")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'Q301', level=1, sheets=(1, 3), containing=False, remove=True)
+        err = test_file(input_filename, test_filename, 'Q301', level=1, sheets=(1, 3),
+                        containing=False, remove=False, by_group=True)
         self.assertEqual(err, 0, "inner levels failed")
 
     def test_inner_level(self):
         logger.info("Testing multiple hierarchy - inner levels source on a different hierarchical level")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner_alt" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'Q1401', level=0, sheets=(2, 3), containing=False, remove=False)
+        err = test_file(input_filename, test_filename, 'Q1401', level=0, sheets=(2, 3),
+                        containing=False, remove=False, by_group=False)
         self.assertEqual(err, 0, "inner levels from bottom failed")
 
     def test_outer(self):
         logger.info("Testing multiple hierarchy - outer levels")
         input_filename = 'replicate_layout_test_project.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_outer" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'Q301', level=0, sheets=(0, 1), containing=False, remove=False)
+        err = test_file(input_filename, test_filename, 'Q301', level=0, sheets=(0, 1),
+                        containing=False, remove=False, by_group=False)
         self.assertEqual(err, 0, "outer levels failed")
 
 

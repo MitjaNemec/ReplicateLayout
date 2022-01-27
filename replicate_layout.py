@@ -106,7 +106,7 @@ class Replicator:
             sheet_id = self.get_sheet_id(fp)
             sheet_file = fp.GetProperty('Sheetfile')
             sheet_name = fp.GetProperty('Sheetname')
-            # footprint is in the schematics and has Sheetfile propertiy
+            # footprint is in the schematics and has Sheetfile property
             if sheet_file and sheet_id:
                 self.dict_of_sheets[sheet_id] = [sheet_name, sheet_file]
             # footprint is in the schematics but has no Sheetfile properties
@@ -129,56 +129,20 @@ class Replicator:
             self.footprints.append(fp_tuple)
         pass
 
-    def prepare_for_replication(self, level, containing):
-        # get a list of source footprints for replication
-        logger.info("Getting the list of source footprints")
-        self.update_progress(self.stage, 0 / 8, None)
-        self.src_footprints = self.get_footprints_on_sheet(level)
-        # get the rest of the footprints
-        logger.info("Getting the list of all the remaining footprints")
-        self.update_progress(self.stage, 1 / 8, None)
-        self.other_footprints = self.get_footprints_not_on_sheet(level)
-        # get nets local to source footprints
-        logger.info("Getting nets local to source footprints")
-        self.update_progress(self.stage, 2 / 8, None)
-        self.src_local_nets = self.get_local_nets(self.src_footprints, self.other_footprints)
-        # get source bounding box
-        logger.info("Getting source bounding box")
-        self.update_progress(self.stage, 3 / 8, None)
-        self.src_bounding_box = self.get_footprints_bounding_box(self.src_footprints)
-        # get source tracks
-        logger.info("Getting source tracks")
-        self.update_progress(self.stage, 4 / 8, None)
-        self.src_tracks = self.get_tracks(self.src_bounding_box, self.src_local_nets, containing)
-        # get source zones
-        logger.info("Getting source zones")
-        self.update_progress(self.stage, 5 / 8, None)
-        self.src_zones = self.get_zones(self.src_bounding_box, containing)
-        # get source text items
-        logger.info("Getting source text items")
-        self.update_progress(self.stage, 6 / 8, None)
-        self.src_text = self.get_text_items(self.src_bounding_box, containing)
-        # get source drawings
-        logger.info("Getting source text items")
-        self.update_progress(self.stage, 7 / 8, None)
-        self.src_drawings = self.get_drawings(self.src_bounding_box, containing)
-        self.update_progress(self.stage, 8 / 8, None)
-
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
-                         containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked):
+                         containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked, by_group):
         logger.info("Starting replication of sheets: " + repr(dst_sheets)
                     + "\non level: " + repr(level)
                     + "\nwith tracks=" + repr(tracks) + ", zone=" + repr(zones) + ", text=" + repr(text)
-                    + ", containing=" + repr(containing) + ", remove=" + repr(remove) + ", locked=" + repr(rep_locked))
+                    + ", containing=" + repr(containing) + ", remove=" + repr(remove)
+                    + ", locked=" + repr(rep_locked) + ", by_group=" + repr(by_group))
 
         self.level = level
         self.src_anchor_fp = src_anchor_fp
         self.dst_sheets = dst_sheets
         self.replicate_locked_items = rep_locked
 
-        # TODO required in order to construct a list of all source footprints
-        #self.src_sheet =
-        #self.src_footprints = self.get_footprints_on_sheet(self.src_sheet)
+        self.src_sheet = level
 
         if remove:
             self.max_stages = 2
@@ -196,7 +160,7 @@ class Replicator:
             self.max_stages = self.max_stages + 1
 
         self.update_progress(self.stage, 0.0, "Preparing for replication")
-        self.prepare_for_replication(level, containing)
+        self.prepare_for_replication(level, containing, by_group)
         if remove:
             logger.info("Removing tracks and zones, before footprint placement")
             self.stage = 2
@@ -233,6 +197,74 @@ class Replicator:
         # finally at the end refill the zones
         filler = pcbnew.ZONE_FILLER(self.board)
         filler.Fill(self.board.Zones())
+
+    def prepare_for_replication(self, level, containing, by_group=False):
+        # get a list of source footprints for replication
+        logger.info("Getting the list of source footprints")
+        self.update_progress(self.stage, 0 / 8, None)
+
+        # if needed filter them by group
+        src_anchor_group = self.src_anchor_fp.fp.GetParentGroup()
+        anchor_sheet_footprints = self.get_footprints_on_sheet(level)
+        if by_group and src_anchor_group:
+            self.src_footprints = self.filter_footprints_by_group(anchor_sheet_footprints,
+                                                                  src_anchor_group.GetName())
+            excluded_footprints = [fp for fp in anchor_sheet_footprints if fp not in self.src_footprints]
+        else:
+            self.src_footprints = anchor_sheet_footprints
+            excluded_footprints = []
+
+        # get the rest of the footprints
+        logger.info("Getting the list of all the remaining footprints")
+        self.update_progress(self.stage, 1 / 8, None)
+        self.other_footprints = self.get_footprints_not_on_sheet(level)
+        self.other_footprints.extend(excluded_footprints)
+        # get nets local to source footprints
+        logger.info("Getting nets local to source footprints")
+        self.update_progress(self.stage, 2 / 8, None)
+        self.src_local_nets = self.get_local_nets(self.src_footprints, self.other_footprints)
+        # get source bounding box
+        logger.info("Getting source bounding box")
+        self.update_progress(self.stage, 3 / 8, None)
+        self.src_bounding_box = self.get_footprints_bounding_box(self.src_footprints)
+        # get source tracks
+        logger.info("Getting source tracks")
+        self.update_progress(self.stage, 4 / 8, None)
+        # if needed filter them by group
+        if by_group and src_anchor_group:
+            self.src_tracks = self.filter_items_by_group(self.get_tracks(self.src_bounding_box,
+                                                                         self.src_local_nets, containing),
+                                                         src_anchor_group.GetName())
+        else:
+            self.src_tracks = self.get_tracks(self.src_bounding_box, self.src_local_nets, containing)
+        # get source zones
+        logger.info("Getting source zones")
+        self.update_progress(self.stage, 5 / 8, None)
+        # if needed filter them by group
+        if by_group and src_anchor_group:
+            self.src_zones = self.filter_items_by_group(self.get_zones(self.src_bounding_box, containing),
+                                                        src_anchor_group.GetName())
+        else:
+            self.src_zones = self.get_zones(self.src_bounding_box, containing)
+        # get source text items
+        logger.info("Getting source text items")
+        self.update_progress(self.stage, 6 / 8, None)
+        # if needed filter them by group
+        if by_group and src_anchor_group:
+            self.src_text = self.filter_items_by_group(self.get_text_items(self.src_bounding_box, containing),
+                                                       src_anchor_group.GetName())
+        else:
+            self.src_text = self.get_text_items(self.src_bounding_box, containing)
+        # get source drawings
+        logger.info("Getting source drawing items")
+        self.update_progress(self.stage, 7 / 8, None)
+        # if needed filter them by group
+        if by_group and src_anchor_group:
+            self.src_drawings = self.filter_items_by_group(self.get_drawings(self.src_bounding_box, containing),
+                                                           src_anchor_group.GetName())
+        else:
+            self.src_drawings = self.get_drawings(self.src_bounding_box, containing)
+        self.update_progress(self.stage, 8 / 8, None)
 
     @staticmethod
     def get_footprint_id(footprint):
@@ -296,9 +328,9 @@ class Replicator:
 
         # get all footprints with same ID
         footprints_with_same_id = self.get_list_of_footprints_with_same_id(reference_footprint.fp_id)
+
         # if hierarchy is deeper, match only the sheets with same hierarchy from root to -1
         sheets_on_same_level = []
-
         # go through all the footprints
         for fp in footprints_with_same_id:
             # if the footprint is on selected level, it's sheet is added to the list of sheets on this level
@@ -333,12 +365,22 @@ class Replicator:
         return footprints_on_sheet
 
     @staticmethod
+    def filter_items_by_group(items, group):
+        items_in_group = []
+        for item in items:
+            item_group = item.GetParentGroup()
+            if item_group and group == item_group.GetName():
+                items_in_group.append(item)
+        return items_in_group
+
+    @staticmethod
     def filter_footprints_by_group(footprints, group):
-        footprints_in_group = []
+        items_in_group = []
         for fp in footprints:
-            if group == fp.GetParentGroup().GetName():
-                footprints_in_group.append(fp)
-        return footprints_in_group
+            fp_group = fp.fp.GetParentGroup()
+            if fp_group and fp_group.GetName():
+                items_in_group.append(fp)
+        return items_in_group
 
     def get_footprints_not_on_sheet(self, level):
         footprints_not_on_sheet = []
@@ -422,8 +464,8 @@ class Replicator:
     def get_zones(self, bounding_box, containing):
         # get all zones
         all_zones = []
-        for zoneid in range(self.board.GetAreaCount()):
-            all_zones.append(self.board.GetArea(zoneid))
+        for zone_id in range(self.board.GetAreaCount()):
+            all_zones.append(self.board.GetArea(zone_id))
         # find all zones which are within the bounding box
         zones = []
         for zone in all_zones:
@@ -451,12 +493,6 @@ class Replicator:
     def get_drawings(self, bounding_box, containing):
         # get all drawings in source bounding box
         all_drawings = []
-        # Drawings are:
-        #   Shapes (line, arc, circle, rect, polygon), dimensions, text, layer align target.
-        # For Drawings typenames see KICAD_T in include/core/typeinfo.h in KiCad source
-        # and m_drawings in pcbnew/board.cpp.
-        # If SHAPE type needs to be differentiated:
-        #   pcbnew.PCB_SHAPE_TYPE_T_asString(someshapeobject.Type()) (see include/board_item.h)
         for drawing in self.board.GetDrawings():
             if isinstance(drawing, pcbnew.PCB_TEXT):
                 # text items are handled separately
@@ -505,7 +541,7 @@ class Replicator:
                         matches = matches + 1
                 list_of_matches.append((index, matches))
             # select the one with most matches
-            index, _ = max(list_of_matches, key=lambda item: item[1])
+            index, _ = max(list_of_matches, key=lambda x: x[1])
             sheet_anchor_fp = list_of_possible_anchor_footprints[index]
         return sheet_anchor_fp
 
@@ -565,14 +601,14 @@ class Replicator:
             # get all footprint pads
             src_fp_pads = pair[0].Pads()
             dst_fp_pads = pair[1].Pads()
-            # create a list of padsnames and pads
+            # create a list of pads names and pads
             s_pads = []
             d_pads = []
             for pad in src_fp_pads:
                 s_pads.append((pad.GetName(), pad))
             for pad in dst_fp_pads:
                 d_pads.append((pad.GetName(), pad))
-            # sort by padnames
+            # sort by pad names
             s_pads.sort(key=lambda tup: tup[0])
             d_pads.sort(key=lambda tup: tup[0])
             # extract pads and append them to pad pairs list
@@ -618,60 +654,55 @@ class Replicator:
             progress = st_index / nr_sheets
             self.update_progress(self.stage, progress, None)
             logger.info("Replicating footprints on sheet " + repr(sheet))
-            # get anchor footprints
+            # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-            # get anchor angle with respect to source footprint
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientationDegrees()
-            # get exact anchor position
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientationDegrees()
 
             anchor_delta_angle = src_anchor_fp_angle - dst_anchor_fp_angle
-            anchor_delta_pos = dst_anchor_fp_position - self.src_anchor_fp.fp.GetPosition()
 
             # go through all footprints
-            # TODO swap destination for source footprints.
-            # TODO this is the first required step before implementing group feature
+            src_footprints = self.src_footprints
             dst_footprints = self.get_footprints_on_sheet(sheet)
 
-            nr_footprints = len(dst_footprints)
+            nr_footprints = len(src_footprints)
             for fp_index in range(nr_footprints):
-                dst_fp = dst_footprints[fp_index]
+                src_fp = src_footprints[fp_index]
 
                 progress = progress + (1 / nr_sheets) * (1 / nr_footprints)
                 self.update_progress(self.stage, progress, None)
 
-                # skip locked footprints
-                if dst_fp.fp.IsLocked() is True and self.replicate_locked_items is False:
-                    continue
-
                 # find proper match in source footprints
-                src_fp = None
-                list_of_possible_src_footprints = []
-                for s_fp in self.src_footprints:
-                    if s_fp.fp_id == dst_fp.fp_id:
-                        list_of_possible_src_footprints.append(s_fp)
+                list_of_possible_dst_footprints = []
+                for d_fp in dst_footprints:
+                    if d_fp.fp_id == src_fp.fp_id:
+                        list_of_possible_dst_footprints.append(d_fp)
 
                 # if there is more than one possible anchor, select the correct one
-                if len(list_of_possible_src_footprints) == 1:
-                    src_fp = list_of_possible_src_footprints[0]
+                if len(list_of_possible_dst_footprints) == 1:
+                    dst_fp = list_of_possible_dst_footprints[0]
                 else:
                     list_of_matches = []
-                    for fp in list_of_possible_src_footprints:
-                        index = list_of_possible_src_footprints.index(fp)
+                    for fp in list_of_possible_dst_footprints:
+                        index = list_of_possible_dst_footprints.index(fp)
                         matches = 0
-                        for item in dst_fp.sheet_id:
+                        for item in src_fp.sheet_id:
                             if item in fp.sheet_id:
                                 matches = matches + 1
                         list_of_matches.append((index, matches))
                     # check if list is empty, if it is, then it is highly likely that shematics and pcb are not in sync
                     if not list_of_matches:
-                        raise LookupError("Can not find anchor (source) footprint for footprint: " + repr(dst_fp.ref)
+                        raise LookupError("Can not find destination footprint for source footprint: " + repr(src_fp.ref)
                                           + "\n" + "Most likely, schematics and PCB are not in sync")
                     # select the one with most matches
                     index, _ = max(list_of_matches, key=lambda item: item[1])
-                    src_fp = list_of_possible_src_footprints[index]
+                    dst_fp = list_of_possible_dst_footprints[index]
+
+                # skip locked footprints
+                if dst_fp.fp.IsLocked() is True and self.replicate_locked_items is False:
+                    continue
 
                 # get footprint to clone position
                 src_fp_orientation = src_fp.fp.GetOrientationDegrees()
@@ -711,9 +742,10 @@ class Replicator:
                         #
                         src_fp_rel_pos = src_anchor_pos - src_fp_pos
                         delta_angle = dst_anchor_fp_angle + src_anchor_fp_angle
-                        dst_fp_rel_pos_rot = [-src_fp_rel_pos[0], src_fp_rel_pos[1]]
-                        dst_fp_rel_pos_rot = rotate_around_center([-src_fp_rel_pos[0], src_fp_rel_pos[1]], -delta_angle)
-                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.wxPoint(dst_fp_rel_pos_rot[0], dst_fp_rel_pos_rot[1])
+                        dst_fp_rel_pos_rot = rotate_around_center([-src_fp_rel_pos[0], src_fp_rel_pos[1]],
+                                                                  -delta_angle)
+                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.wxPoint(dst_fp_rel_pos_rot[0],
+                                                                                 dst_fp_rel_pos_rot[1])
                         # also need to change the angle
                         dst_fp.fp.SetPosition(dst_fp_rel_pos)
                         src_fp_flipped_orientation = flipped_angle(src_fp_orientation)
@@ -725,7 +757,7 @@ class Replicator:
                 dst_fp_flipped = dst_fp.fp.IsFlipped()
 
                 # replicate also text layout - also for anchor footprint. I am counting that the user is lazy and will
-                # just position the anchors and will not edit them
+                # just position the destination anchors and will not edit them
                 # get footprint text
                 src_fp_text_items = self.get_footprint_text_items(src_fp)
                 dst_fp_text_items = self.get_footprint_text_items(dst_fp)
@@ -765,7 +797,6 @@ class Replicator:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        a = dst_fp.ref
                         dst_text.SetTextAngle(src_txt_orientation)
                         dst_text.SetMirrored(src_text.IsMirrored())
 
@@ -792,9 +823,7 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-            # get anchor angle with respect to source anchor footprint
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
-            # get exact anchor position
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
@@ -853,9 +882,7 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-            # get anchor angle with respect to source anchor footprint
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
-            # get exact anchor position
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
@@ -925,8 +952,6 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-
-            # get exact anchor position
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
 
@@ -966,7 +991,6 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-            # get exact anchor position
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
 
@@ -1009,20 +1033,15 @@ class Replicator:
             # remove the tracks that are not on nets contained in this sheet
             nets_on_sheet = self.get_nets_from_footprints(fp_sheet)
 
-            # remove tracks
+            # remove items
             for track in self.get_tracks(bounding_box, nets_on_sheet, containing):
                 # minus the tracks in source bounding box
                 if track not in self.src_tracks:
                     self.board.RemoveNative(track)
-
-            # remove zones
             for zone in self.get_zones(bounding_box, containing):
                 self.board.RemoveNative(zone)
-
-            # remove text items
             for text_item in self.get_text_items(bounding_box, containing):
                 self.board.RemoveNative(text_item)
-
             for drawing in self.get_drawings(bounding_box, containing):
                 self.board.RemoveNative(drawing)
 
