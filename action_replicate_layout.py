@@ -207,8 +207,12 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             logging.shutdown()
             self.progress_dlg.Destroy()
             event.Skip()
-            self.EndModal(False)
-            return
+            # clear highlight on all footprints on selected level
+            for fp in self.src_footprints:
+                fp_clear_highlight(fp)
+            pcbnew.Refresh()
+
+            self.Destroy()
 
     def on_cancel(self, event):
         # clear highlight on all footprints on selected level
@@ -219,7 +223,13 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         self.logger.info("User canceled the dialog")
         logging.shutdown()
         event.Skip()
-        self.EndModal(False)
+
+        # clear highlight on all footprints on selected level
+        for fp in self.src_footprints:
+            fp_clear_highlight(fp)
+        pcbnew.Refresh()
+
+        self.Destroy()
 
     def update_progress(self, stage, percentage, message=None):
         current_time = time.time()
@@ -358,31 +368,15 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         logger.info("Showing dialog")
         dlg = ReplicateLayoutDialog(self.frame, replicator, src_anchor_fp_reference, logger)
 
-        # find pcbnew position
-        pcbnew_pos = self.frame.GetScreenPosition()
-        logger.info("Pcbnew position: " + repr(pcbnew_pos))
-
-        # find all the display sizes
-        display = list()
-        for n in range(wx.Display.GetCount()):
-            display.append(wx.Display(n).GetGeometry())
-            logger.info("Display " + repr(n) + ": " + repr(wx.Display(n).GetGeometry()))
-
         # find position of right toolbar
         toolbar_pos = self.frame.FindWindowById(pcbnew.ID_V_TOOLBAR).GetScreenPosition()
         logger.info("Toolbar position: " + repr(toolbar_pos))
 
         # find site of dialog
         size = dlg.GetSize()
-        # calculate the position
+        # place the dialog by the right toolbar
         dialog_position = wx.Point(toolbar_pos[0] - size[0], toolbar_pos[1])
         logger.info("Dialog position: " + repr(dialog_position))
         dlg.SetPosition(dialog_position)
 
-        dlg.ShowModal()
-        dlg.Destroy()
-
-        # clear highlight on all footprints on selected level
-        for fp in dlg.src_footprints:
-            fp_clear_highlight(fp)
-        pcbnew.Refresh()
+        dlg.Show()

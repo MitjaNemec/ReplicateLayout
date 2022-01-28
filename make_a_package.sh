@@ -28,9 +28,11 @@ cp replicate_layout_light.png plugins
 cp __init__.py plugins
 cp action_replicate_layout.py plugins
 cp replicate_layout.py plugins
+cp remove_duplicates.py plugins
+cp replicate_layout_GUI.py plugins
 cp version.txt plugins
 mkdir resources
-cp place_footprints.png resources/icon.png
+cp replicate_layout.png resources/icon.png
 
 zip -r ReplicateLayout-$version-pcm.zip plugins resources metadata.json
 
