@@ -274,7 +274,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
     def Run(self):
         # grab PCB editor frame
-        self.frame = wx.GetTopLevelParent(wx.GetActiveWindow())
+        self.frame = wx.FindWindowById(pcbnew.ID_V_TOOLBAR).GetParent()
 
         # load board
         board = pcbnew.GetBoard()
