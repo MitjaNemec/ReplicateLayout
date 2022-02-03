@@ -425,12 +425,14 @@ class Replicator:
     def get_footprints_bounding_box(footprints):
         # get first footprint bounding box
         bounding_box = footprints[0].fp.GetBoundingBox()
+        #bounding_box = footprints[0].fp.GetBoundingBox(False, False)
         top = bounding_box.GetTop()
         bottom = bounding_box.GetBottom()
         left = bounding_box.GetLeft()
         right = bounding_box.GetRight()
         # iterate through the rest of the footprints and resize bounding box accordingly
         for fp in footprints:
+            #fp_box = fp.fp.GetBoundingBox(False, False)
             fp_box = fp.fp.GetBoundingBox()
             top = min(top, fp_box.GetTop())
             bottom = max(bottom, fp_box.GetBottom())
@@ -442,7 +444,7 @@ class Replicator:
         bounding_box = pcbnew.EDA_RECT(position, size)
         return bounding_box
 
-    def get_tracks(self, bounding_box, local_nets, containing):
+    def get_tracks(self, bounding_box, local_nets, containing, exclusive_nets=[]):
         # get_all tracks
         all_tracks = self.board.GetTracks()
         tracks = []
@@ -453,10 +455,10 @@ class Replicator:
             if (containing and bounding_box.Contains(track_bb)) or \
                     (not containing and bounding_box.Intersects(track_bb)):
                 tracks.append(track)
-            # even if track is not within the bounding box
+            # even if track is not within the bounding box, but is on the completely local net
             else:
                 # check if it on a local net
-                if track.GetNetname() in local_nets:
+                if track.GetNetname() in exclusive_nets:
                     # and add it to the
                     tracks.append(track)
         return tracks
@@ -1030,11 +1032,18 @@ class Replicator:
             fp_sheet = self.get_footprints_on_sheet(sheet)
             # get bounding box
             bounding_box = self.get_footprints_bounding_box(fp_sheet)
-            # remove the tracks that are not on nets contained in this sheet
+            logger.info(f"Remove bounding box top:{bounding_box.GetTop()}, bottom:{bounding_box.GetBottom()}, "
+                         f"Left:{bounding_box.GetLeft()}, Right:{bounding_box.GetRight()}")
+            # remove only tracks which are within the bounding box
+            # or they are connected to a net that is completely local to the sheet
             nets_on_sheet = self.get_nets_from_footprints(fp_sheet)
+            fp_not_on_sheet = self.get_footprints_not_on_sheet(sheet)
+            other_nets = self.get_nets_from_footprints(fp_not_on_sheet)
+            nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
 
             # remove items
-            for track in self.get_tracks(bounding_box, nets_on_sheet, containing):
+            tracks_for_removal = self.get_tracks(bounding_box, nets_on_sheet, containing, nets_exclusively_on_sheet)
+            for track in tracks_for_removal:
                 # minus the tracks in source bounding box
                 if track not in self.src_tracks:
                     self.board.RemoveNative(track)

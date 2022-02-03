@@ -36,6 +36,20 @@
             ]
         },
         {
+            "version": "1.0.1",
+            "status": "stable",
+            "kicad_version": "6.0",
+            "download_url": "https://github.com/MitjaNemec/ReplicateLayout/releases/download/1.0.1/ReplicateLayout-1.0.1-pcm.zip",
+            "download_sha256": "4e4d1e467b87490b689231e9549d4dfb2a888b1deafc4751a53e50005463586c",
+            "download_size": 26532,
+            "install_size": 88222,
+            "platforms": [
+                "linux",
+                "macos",
+                "windows"
+            ]
+        },
+        {
             "version": "VERSION",
             "status": "stable",
             "kicad_version": "6.0",
