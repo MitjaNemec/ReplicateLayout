@@ -6,6 +6,8 @@ __pycache__/
 .idea/
 *.png
 *.log
+*.zip
+*.kicad_prl
 /replicate_layout_test_project/fp-info-cache
 /replicate_layout_test_project/.directory
 /replicate_layout_test_project/*.log
@@ -35,3 +37,5 @@ __pycache__/
 ReplicateLayout-1.0.0-pcm.zip
 metadata_package.json
 metadata.json
+replicate_layout_test_project
+replicate_layout_fp_text
