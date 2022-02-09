@@ -274,7 +274,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
     def Run(self):
         # grab PCB editor frame
-        self.frame = wx.FindWindowById(pcbnew.ID_V_TOOLBAR).GetParent()
+        self.frame = wx.FindWindowByName("PcbFrame")
 
         # load board
         board = pcbnew.GetBoard()
@@ -321,6 +321,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         # prepare the replicator
         logger.info("Preparing replicator with " + src_anchor_fp_reference + " as a reference")
 
+        # TODO return if replication is not possible at all
         try:
             replicator = Replicator(board)
         except LookupError as exception:
@@ -367,6 +368,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         # show dialog
         logger.info("Showing dialog")
         dlg = ReplicateLayoutDialog(self.frame, replicator, src_anchor_fp_reference, logger)
+        dlg.CenterOnParent()
 
         # find position of right toolbar
         toolbar_pos = self.frame.FindWindowById(pcbnew.ID_V_TOOLBAR).GetScreenPosition()
@@ -380,3 +382,5 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         dlg.SetPosition(dialog_position)
 
         dlg.Show()
+
+

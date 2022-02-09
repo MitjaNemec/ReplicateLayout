@@ -128,6 +128,7 @@ class Replicator:
                                  ref=fp.GetReference())
             self.footprints.append(fp_tuple)
         pass
+        # TODO check if there is any other footprint fit same ID as anchor footprint
 
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
                          containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked, by_group):
