@@ -104,29 +104,41 @@ class Replicator:
         self.dict_of_sheets = {}
         for fp in footprints:
             sheet_id = self.get_sheet_id(fp)
-            sheet_file = fp.GetProperty('Sheetfile')
-            sheet_name = fp.GetProperty('Sheetname')
+            try:
+                sheet_file = fp.GetProperty('Sheetfile')
+                sheet_name = fp.GetProperty('Sheetname')
+            except KeyError:
+                logger.info("Footprint " + fp.GetReference() +
+                            " does not have Sheetfile property, it will not be replicated."
+                            " Most likely it is only in schematics")
+                continue
             # footprint is in the schematics and has Sheetfile property
             if sheet_file and sheet_id:
                 self.dict_of_sheets[sheet_id] = [sheet_name, sheet_file]
-            # footprint is in the schematics but has no Sheetfile properties
+            # footprint is in the schematics but has empty Sheetfile properties
             elif sheet_id:
-                logger.info("Footprint " + fp.GetReference() + " does not have Sheetfile property")
+                logger.info("Footprint " + fp.GetReference() + " has empty Sheetfile property")
                 raise LookupError("Footprint " + str(
-                    fp.GetReference()) + " doesn't have Sheetfile and Sheetname properties. "
+                    fp.GetReference()) + " has empty Sheetfile and Sheetname properties. "
                                          "You need to update the layout from schematics")
-            # footprint is only in the layout
+            # footprint is on root level
             else:
-                logger.debug("Footprint " + fp.GetReference() + " is only in layout")
+                logger.debug("Footprint " + fp.GetReference() + " on root level")
+                continue
 
         # construct a list of all the footprints
         for fp in footprints:
-            fp_tuple = Footprint(fp=fp,
-                                 fp_id=self.get_footprint_id(fp),
-                                 sheet_id=self.get_sheet_path(fp)[0],
-                                 filename=self.get_sheet_path(fp)[1],
-                                 ref=fp.GetReference())
-            self.footprints.append(fp_tuple)
+            try:
+                sheet_file = fp.GetProperty('Sheetfile')
+                sheet_name = fp.GetProperty('Sheetname')
+                fp_tuple = Footprint(fp=fp,
+                                     fp_id=self.get_footprint_id(fp),
+                                     sheet_id=self.get_sheet_path(fp)[0],
+                                     filename=self.get_sheet_path(fp)[1],
+                                     ref=fp.GetReference())
+                self.footprints.append(fp_tuple)
+            except KeyError:
+                pass
         pass
         # TODO check if there is any other footprint fit same ID as anchor footprint
 
@@ -379,8 +391,9 @@ class Replicator:
         items_in_group = []
         for fp in footprints:
             fp_group = fp.fp.GetParentGroup()
-            if fp_group and fp_group.GetName():
-                items_in_group.append(fp)
+            if hasattr(fp_group, 'GetName'):
+                if group and fp_group.GetName():
+                    items_in_group.append(fp)
         return items_in_group
 
     def get_footprints_not_on_sheet(self, level):
@@ -425,16 +438,14 @@ class Replicator:
     @staticmethod
     def get_footprints_bounding_box(footprints):
         # get first footprint bounding box
-        bounding_box = footprints[0].fp.GetBoundingBox()
-        #bounding_box = footprints[0].fp.GetBoundingBox(False, False)
+        bounding_box = footprints[0].fp.GetBoundingBox(False, False)
         top = bounding_box.GetTop()
         bottom = bounding_box.GetBottom()
         left = bounding_box.GetLeft()
         right = bounding_box.GetRight()
         # iterate through the rest of the footprints and resize bounding box accordingly
         for fp in footprints:
-            #fp_box = fp.fp.GetBoundingBox(False, False)
-            fp_box = fp.fp.GetBoundingBox()
+            fp_box = fp.fp.GetBoundingBox(False, False)
             top = min(top, fp_box.GetTop())
             bottom = max(bottom, fp_box.GetBottom())
             left = min(left, fp_box.GetLeft())
@@ -445,8 +456,10 @@ class Replicator:
         bounding_box = pcbnew.EDA_RECT(position, size)
         return bounding_box
 
-    def get_tracks(self, bounding_box, local_nets, containing, exclusive_nets=[]):
+    def get_tracks(self, bounding_box, local_nets, containing, exclusive_nets=None):
         # get_all tracks
+        if exclusive_nets is None:
+            exclusive_nets = []
         all_tracks = self.board.GetTracks()
         tracks = []
         # keep only tracks that are within our bounding box
@@ -695,7 +708,7 @@ class Replicator:
                             if item in fp.sheet_id:
                                 matches = matches + 1
                         list_of_matches.append((index, matches))
-                    # check if list is empty, if it is, then it is highly likely that shematics and pcb are not in sync
+                    # check if list is empty, if it is, then it is highly likely that schematics and pcb are not in sync
                     if not list_of_matches:
                         raise LookupError("Can not find destination footprint for source footprint: " + repr(src_fp.ref)
                                           + "\n" + "Most likely, schematics and PCB are not in sync")
@@ -1034,7 +1047,7 @@ class Replicator:
             # get bounding box
             bounding_box = self.get_footprints_bounding_box(fp_sheet)
             logger.info(f"Remove bounding box top:{bounding_box.GetTop()}, bottom:{bounding_box.GetBottom()}, "
-                         f"Left:{bounding_box.GetLeft()}, Right:{bounding_box.GetRight()}")
+                        f"Left:{bounding_box.GetLeft()}, Right:{bounding_box.GetRight()}")
             # remove only tracks which are within the bounding box
             # or they are connected to a net that is completely local to the sheet
             nets_on_sheet = self.get_nets_from_footprints(fp_sheet)
@@ -1057,6 +1070,3 @@ class Replicator:
 
     def removing_duplicates(self):
         remove_duplicates(self.board)
-
-
-

@@ -307,7 +307,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         # if more or less than one show only a message box
         if len(selected_footprints) != 1:
-            caption = 'Place footprints'
+            caption = 'Replicate layout'
             message = "More or less than 1 footprint selected. Please select exactly one footprint " \
                       "and run the script again"
             dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_INFORMATION)
@@ -382,5 +382,3 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         dlg.SetPosition(dialog_position)
 
         dlg.Show()
-
-

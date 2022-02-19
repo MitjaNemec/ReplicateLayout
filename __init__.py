@@ -28,7 +28,7 @@ except Exception as e:
         def Run(self):
             caption = self.name
             message = "There was an error while loading plugin \n" \
-                      "Please take a look in the plugin folder for place_footprints_error.log\n" \
+                      "Please take a look in the plugin folder for replicate_layout_error.log\n" \
                       "You can raise an issue on GitHub page.\n" \
                       "Please attach the .log file"
             wx.MessageBox(message, caption, wx.OK | wx.ICON_ERROR)
