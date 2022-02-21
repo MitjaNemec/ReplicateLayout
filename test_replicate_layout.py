@@ -44,6 +44,9 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     # get the list selection from user
     dst_sheets = [sheet_list[i] for i in sheets]
 
+    (fps, items) = replicator.highlight_set_level(src_anchor_fp.sheet_id[0:index + 1], True)
+    replicator.highlight_clear_level(fps, items)
+
     # now we are ready for replication
     replicator.replicate_layout(src_anchor_fp, src_anchor_fp.sheet_id[0:index + 1], dst_sheets,
                                 containing=containing, remove=remove, rm_duplicates=True,

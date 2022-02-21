@@ -84,7 +84,6 @@ class Replicator:
         self.dst_sheets = []
         self.src_footprints = []
         self.other_footprints = []
-        self.src_local_nets = []
         self.src_bounding_box = None
         self.src_tracks = []
         self.src_zones = []
@@ -235,7 +234,6 @@ class Replicator:
         # get nets local to source footprints
         logger.info("Getting nets local to source footprints")
         self.update_progress(self.stage, 2 / 8, None)
-        self.src_local_nets = self.get_local_nets(self.src_footprints, self.other_footprints)
         # get source bounding box
         logger.info("Getting source bounding box")
         self.update_progress(self.stage, 3 / 8, None)
@@ -245,11 +243,10 @@ class Replicator:
         self.update_progress(self.stage, 4 / 8, None)
         # if needed filter them by group
         if by_group and src_anchor_group:
-            self.src_tracks = self.filter_items_by_group(self.get_tracks(self.src_bounding_box,
-                                                                         self.src_local_nets, containing),
+            self.src_tracks = self.filter_items_by_group(self.get_tracks(self.src_bounding_box, containing),
                                                          src_anchor_group.GetName())
         else:
-            self.src_tracks = self.get_tracks(self.src_bounding_box, self.src_local_nets, containing)
+            self.src_tracks = self.get_tracks(self.src_bounding_box, containing)
         # get source zones
         logger.info("Getting source zones")
         self.update_progress(self.stage, 5 / 8, None)
@@ -456,7 +453,7 @@ class Replicator:
         bounding_box = pcbnew.EDA_RECT(position, size)
         return bounding_box
 
-    def get_tracks(self, bounding_box, local_nets, containing, exclusive_nets=None):
+    def get_tracks(self, bounding_box, containing, exclusive_nets=None):
         # get_all tracks
         if exclusive_nets is None:
             exclusive_nets = []
@@ -1056,7 +1053,7 @@ class Replicator:
             nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
 
             # remove items
-            tracks_for_removal = self.get_tracks(bounding_box, nets_on_sheet, containing, nets_exclusively_on_sheet)
+            tracks_for_removal = self.get_tracks(bounding_box, containing, nets_exclusively_on_sheet)
             for track in tracks_for_removal:
                 # minus the tracks in source bounding box
                 if track not in self.src_tracks:
@@ -1070,3 +1067,67 @@ class Replicator:
 
     def removing_duplicates(self):
         remove_duplicates(self.board)
+
+    def highlight_set_level(self, level, tracks, zones, text, drawings, containing):
+        # find level bounding box
+        src_fps = self.get_footprints_on_sheet(level)
+        fps_bb = self.get_footprints_bounding_box(src_fps)
+
+        fps = []
+        # set highlight on all the footprints
+        for fp in src_fps:
+            self.fp_set_highlight(fp.fp)
+            fps.append(fp)
+
+        # set highlight on other items
+        items = []
+        if tracks:
+            tracks = self.get_tracks(fps_bb, containing)
+            for t in tracks:
+                t.SetBrightened()
+                items.append(t)
+        if zones:
+            zones = self.get_zones(fps_bb, containing)
+            for zone in zones:
+                zone.SetBrightened()
+                items.append(zone)
+        if text:
+            text_items = self.get_text_items(fps_bb, containing)
+            for t_i in text_items:
+                t_i.SetBrightened()
+                items.append(t_i)
+        if drawings:
+            dwgs = self.get_drawings(fps_bb, containing)
+            for dw in dwgs:
+                dw.SetBrightened()
+                items.append(dw)
+
+        return fps, items
+
+    def highlight_clear_level(self, fps, items):
+        # set highlight on all the footprints
+        for fp in fps:
+            self.fp_clear_highlight(fp.fp)
+
+        # set highlight on other items
+        for item in items:
+            item.ClearBrightened()
+
+
+    @staticmethod
+    def fp_set_highlight(fp):
+        pads_list = fp.Pads()
+        for pad in pads_list:
+            pad.SetBrightened()
+        drawings = fp.GraphicalItems()
+        for item in drawings:
+            item.SetBrightened()
+
+    @staticmethod
+    def fp_clear_highlight(fp):
+        pads_list = fp.Pads()
+        for pad in pads_list:
+            pad.ClearBrightened()
+        drawings = fp.GraphicalItems()
+        for item in drawings:
+            item.ClearBrightened()

@@ -29,24 +29,6 @@ from .replicate_layout_GUI import ReplicateLayoutGUI
 from .replicate_layout import Replicator
 
 
-def fp_set_highlight(fp):
-    pads_list = fp.Pads()
-    for pad in pads_list:
-        pad.SetBrightened()
-    drawings = fp.GraphicalItems()
-    for item in drawings:
-        item.SetBrightened()
-
-
-def fp_clear_highlight(fp):
-    pads_list = fp.Pads()
-    for pad in pads_list:
-        pad.ClearBrightened()
-    drawings = fp.GraphicalItems()
-    for item in drawings:
-        item.ClearBrightened()
-
-
 class ReplicateLayoutDialog(ReplicateLayoutGUI):
     def SetSizeHints(self, sz1, sz2):
         # DO NOTHING
@@ -66,6 +48,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         self.list_levels.AppendItems(self.levels)
 
         self.src_footprints = []
+        self.hl_fps = []
+        self.hl_items = []
 
     def level_changed(self, event):
         index = self.list_levels.GetSelection()
@@ -73,8 +57,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                                                                       self.src_anchor_fp.sheet_id[index])
 
         # clear highlight on all footprints on selected level
-        for fp in self.src_footprints:
-            fp_clear_highlight(fp)
+        self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
+        self.hl_fps = []
+        self.hl_items = []
         pcbnew.Refresh()
 
         # get anchor footprints
@@ -97,13 +82,13 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         for i in range(number_of_items):
             self.list_sheets.Select(i)
 
-        # get all source footprints on selected level
-        src_footprints = self.replicator.get_footprints_on_sheet(self.src_anchor_fp.sheet_id[:index + 1])
-        self.src_footprints = [x.fp for x in src_footprints]
-
         # highlight all footprints on selected level
-        for fp in self.src_footprints:
-            fp_set_highlight(fp)
+        (self.hl_fps, self.hl_items) = self.replicator.highlight_set_level(self.src_anchor_fp.sheet_id[0:self.list_levels.GetSelection() + 1],
+                                                                           self.chkbox_tracks.GetValue(),
+                                                                           self.chkbox_zones.GetValue(),
+                                                                           self.chkbox_text.GetValue(),
+                                                                           self.chkbox_drawings.GetValue(),
+                                                                           not self.chkbox_intersecting.GetValue())
         pcbnew.Refresh()
 
         event.Skip()
@@ -166,8 +151,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
 
             self.logger.info("Replication complete")
             # clear highlight on all footprints on selected level
-            for fp in self.src_footprints:
-                fp_clear_highlight(fp)
+            self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
+            self.hl_fps = []
+            self.hl_items = []
             pcbnew.Refresh()
 
             logging.shutdown()
@@ -176,8 +162,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             self.EndModal(True)
         except LookupError as exception:
             # clear highlight on all footprints on selected level
-            for fp in self.src_footprints:
-                fp_clear_highlight(fp)
+            self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
+            self.hl_fps = []
+            self.hl_items = []
             pcbnew.Refresh()
 
             caption = 'Replicate Layout'
@@ -192,8 +179,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             return
         except Exception:
             # clear highlight on all footprints on selected level
-            for fp in self.src_footprints:
-                fp_clear_highlight(fp)
+            self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
+            self.hl_fps = []
+            self.hl_items = []
             pcbnew.Refresh()
 
             self.logger.exception("Fatal error when running Replicate layoue plugin")
@@ -207,27 +195,18 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             logging.shutdown()
             self.progress_dlg.Destroy()
             event.Skip()
-            # clear highlight on all footprints on selected level
-            for fp in self.src_footprints:
-                fp_clear_highlight(fp)
-            pcbnew.Refresh()
-
             self.Destroy()
 
     def on_cancel(self, event):
         # clear highlight on all footprints on selected level
-        for fp in self.src_footprints:
-            fp_clear_highlight(fp)
+        self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
+        self.hl_fps = []
+        self.hl_items = []
         pcbnew.Refresh()
 
         self.logger.info("User canceled the dialog")
         logging.shutdown()
         event.Skip()
-
-        # clear highlight on all footprints on selected level
-        for fp in self.src_footprints:
-            fp_clear_highlight(fp)
-        pcbnew.Refresh()
 
         self.Destroy()
 
