@@ -762,7 +762,7 @@ class Replicator:
                         # also need to change the angle
                         dst_fp.fp.SetPosition(dst_fp_rel_pos)
                         src_fp_flipped_orientation = flipped_angle(src_fp_orientation)
-                        flipped_delta = flipped_angle(src_anchor_fp_angle)-dst_anchor_fp_angle
+                        flipped_delta = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
                         new_orientation = src_fp_flipped_orientation - flipped_delta
                         dst_fp.fp.SetOrientationDegrees(new_orientation)
 
@@ -872,13 +872,11 @@ class Replicator:
                     new_track.Move(move_vector)
                     if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                         new_track.Flip(dst_anchor_fp_position, False)
-                        src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                        delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                        delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                         rot_angle = delta_angle - 1800
                         new_track.Rotate(dst_anchor_fp_position, -rot_angle)
                     else:
                         new_track.Rotate(dst_anchor_fp_position, delta_orientation)
-                        pass
 
                     self.board.Add(new_track)
 
@@ -945,8 +943,7 @@ class Replicator:
                 new_zone.SetNet(to_net_item)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_zone.Flip(dst_anchor_fp_position, False)
-                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
                     new_zone.Rotate(dst_anchor_fp_position, -rot_angle)
                 else:
@@ -984,8 +981,7 @@ class Replicator:
                 new_text.Move(move_vector)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_text.Flip(dst_anchor_fp_position, False)
-                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
                     new_text.Rotate(dst_anchor_fp_position, -rot_angle)
                 else:
@@ -1026,8 +1022,7 @@ class Replicator:
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
 
                     new_drawing.Flip(dst_anchor_fp_position, False)
-                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
                     new_drawing.Rotate(dst_anchor_fp_position, -rot_angle)
                 else:
