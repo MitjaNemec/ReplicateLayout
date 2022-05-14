@@ -184,7 +184,7 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             self.hl_items = []
             pcbnew.Refresh()
 
-            self.logger.exception("Fatal error when running Replicate layoue plugin")
+            self.logger.exception("Fatal error when running Replicate layout plugin")
             caption = 'Replicate Layout'
             message = "Fatal error when running replicator.\n" \
                       + "You can raise an issue on GiHub page.\n" \
