@@ -874,9 +874,9 @@ class Replicator:
                         new_track.Flip(dst_anchor_fp_position, False)
                         delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                         rot_angle = delta_angle - 1800
-                        new_track.Rotate(dst_anchor_fp_position, -rot_angle)
+                        new_track.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                     else:
-                        new_track.Rotate(dst_anchor_fp_position, delta_orientation)
+                        new_track.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
 
                     self.board.Add(new_track)
 
@@ -945,9 +945,10 @@ class Replicator:
                     new_zone.Flip(dst_anchor_fp_position, False)
                     delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
-                    new_zone.Rotate(dst_anchor_fp_position, -rot_angle)
+                    new_zone.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                 else:
-                    new_zone.Rotate(dst_anchor_fp_position, delta_orientation)
+                    new_zone.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
+
                 self.board.Add(new_zone)
 
     def replicate_text(self):
@@ -983,9 +984,9 @@ class Replicator:
                     new_text.Flip(dst_anchor_fp_position, False)
                     delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
-                    new_text.Rotate(dst_anchor_fp_position, -rot_angle)
+                    new_text.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                 else:
-                    new_text.Rotate(dst_anchor_fp_position, delta_orientation)
+                    new_text.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
 
                 self.board.Add(new_text)
 
@@ -1024,9 +1025,9 @@ class Replicator:
                     new_drawing.Flip(dst_anchor_fp_position, False)
                     delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
-                    new_drawing.Rotate(dst_anchor_fp_position, -rot_angle)
+                    new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                 else:
-                    new_drawing.Rotate(dst_anchor_fp_position, delta_orientation)
+                    new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
 
                 self.board.Add(new_drawing)
 
