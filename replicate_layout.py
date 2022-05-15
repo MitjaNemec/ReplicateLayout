@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 def rotate_around_center(coordinates, angle):
     """ rotate coordinates for a defined angle in degrees around coordinate center"""
     new_x = coordinates[0] * math.cos(2 * math.pi * angle / 360) \
-            - coordinates[1] * math.sin(2 * math.pi * angle / 360)
+        - coordinates[1] * math.sin(2 * math.pi * angle / 360)
     new_y = coordinates[0] * math.sin(2 * math.pi * angle / 360) \
-            + coordinates[1] * math.cos(2 * math.pi * angle / 360)
-    return new_x, new_y
+        + coordinates[1] * math.cos(2 * math.pi * angle / 360)
+    return int(new_x), int(new_y)
 
 
 def rotate_around_point(old_position, point, angle):
@@ -448,8 +448,8 @@ class Replicator:
             left = min(left, fp_box.GetLeft())
             right = max(right, fp_box.GetRight())
 
-        position = pcbnew.wxPoint(left, top)
-        size = pcbnew.wxSize(right - left, bottom - top)
+        position = pcbnew.VECTOR2I(left, top)
+        size = pcbnew.VECTOR2I(right - left, bottom - top)
         bounding_box = pcbnew.EDA_RECT(position, size)
         return bounding_box
 
@@ -734,7 +734,7 @@ class Replicator:
                 new_pos = [int(x) for x in new_pos]
                 # place current footprint - only if current footprint is not also the anchor
                 if dst_fp.ref != dst_anchor_fp.ref:
-                    dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_pos))
+                    dst_fp.fp.SetPosition(pcbnew.VECTOR2I(new_pos[0], new_pos[1]))
 
                     if dst_fp.fp.IsFlipped() != src_fp_flipped:
                         dst_fp.fp.Flip(dst_fp.fp.GetPosition(), False)
@@ -757,12 +757,12 @@ class Replicator:
                         delta_angle = dst_anchor_fp_angle + src_anchor_fp_angle
                         dst_fp_rel_pos_rot = rotate_around_center([-src_fp_rel_pos[0], src_fp_rel_pos[1]],
                                                                   -delta_angle)
-                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.wxPoint(dst_fp_rel_pos_rot[0],
-                                                                                 dst_fp_rel_pos_rot[1])
+                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.VECTOR2I(dst_fp_rel_pos_rot[0],
+                                                                                  dst_fp_rel_pos_rot[1])
                         # also need to change the angle
                         dst_fp.fp.SetPosition(dst_fp_rel_pos)
                         src_fp_flipped_orientation = flipped_angle(src_fp_orientation)
-                        flipped_delta = flipped_angle(src_anchor_fp_angle)-dst_anchor_fp_angle
+                        flipped_delta = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
                         new_orientation = src_fp_flipped_orientation - flipped_delta
                         dst_fp.fp.SetOrientationDegrees(new_orientation)
 
@@ -802,13 +802,13 @@ class Replicator:
                         dst_txt_rel_pos = [-src_txt_rel_pos[0], src_txt_rel_pos[1]]
                         delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
                         dst_txt_rel_pos_rot = rotate_around_center(dst_txt_rel_pos, delta_angle)
-                        dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1])
+                        dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1])
                         dst_text.SetPosition(dst_txt_pos)
                         dst_text.SetTextAngle(-src_txt_orientation)
                         dst_text.SetMirrored(not src_text.IsMirrored())
                     else:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -delta_angle)
-                        dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
+                        dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
                         dst_text.SetPosition(dst_txt_pos)
                         dst_text.SetTextAngle(src_txt_orientation)
                         dst_text.SetMirrored(src_text.IsMirrored())
@@ -836,10 +836,10 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
+            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
-            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
@@ -872,13 +872,11 @@ class Replicator:
                     new_track.Move(move_vector)
                     if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                         new_track.Flip(dst_anchor_fp_position, False)
-                        src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                        delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                        delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                         rot_angle = delta_angle - 1800
-                        new_track.Rotate(dst_anchor_fp_position, -rot_angle)
+                        new_track.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                     else:
-                        new_track.Rotate(dst_anchor_fp_position, delta_orientation)
-                        pass
+                        new_track.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
 
                     self.board.Add(new_track)
 
@@ -895,10 +893,10 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
+            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
-            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
@@ -945,12 +943,12 @@ class Replicator:
                 new_zone.SetNet(to_net_item)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_zone.Flip(dst_anchor_fp_position, False)
-                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
-                    new_zone.Rotate(dst_anchor_fp_position, -rot_angle)
+                    new_zone.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                 else:
-                    new_zone.Rotate(dst_anchor_fp_position, delta_orientation)
+                    new_zone.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
+
                 self.board.Add(new_zone)
 
     def replicate_text(self):
@@ -966,9 +964,9 @@ class Replicator:
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
-            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
+            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
 
-            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
@@ -984,12 +982,11 @@ class Replicator:
                 new_text.Move(move_vector)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_text.Flip(dst_anchor_fp_position, False)
-                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
-                    new_text.Rotate(dst_anchor_fp_position, -rot_angle)
+                    new_text.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                 else:
-                    new_text.Rotate(dst_anchor_fp_position, delta_orientation)
+                    new_text.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
 
                 self.board.Add(new_text)
 
@@ -1005,9 +1002,9 @@ class Replicator:
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
-            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
+            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
 
-            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
@@ -1026,12 +1023,11 @@ class Replicator:
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
 
                     new_drawing.Flip(dst_anchor_fp_position, False)
-                    src_anchor_fp_flipped_angle = flipped_angle(src_anchor_fp_angle / 10)
-                    delta_angle = src_anchor_fp_flipped_angle * 10 - dst_anchor_fp_angle
+                    delta_angle = flipped_angle(src_anchor_fp_angle / 10) * 10 - dst_anchor_fp_angle
                     rot_angle = delta_angle - 1800
-                    new_drawing.Rotate(dst_anchor_fp_position, -rot_angle)
+                    new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.TENTHS_OF_A_DEGREE_T))
                 else:
-                    new_drawing.Rotate(dst_anchor_fp_position, delta_orientation)
+                    new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.TENTHS_OF_A_DEGREE_T))
 
                 self.board.Add(new_drawing)
 
@@ -1112,7 +1108,6 @@ class Replicator:
         # set highlight on other items
         for item in items:
             item.ClearBrightened()
-
 
     @staticmethod
     def fp_set_highlight(fp):
