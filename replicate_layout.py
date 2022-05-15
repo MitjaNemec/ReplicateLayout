@@ -893,10 +893,10 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
-            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
+            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
-            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
@@ -964,9 +964,9 @@ class Replicator:
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
-            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
+            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
 
-            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
@@ -1002,9 +1002,9 @@ class Replicator:
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
-            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation()
+            dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
 
-            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation()
+            src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
