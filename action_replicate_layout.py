@@ -47,6 +47,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         self.list_levels.Clear()
         self.list_levels.AppendItems(self.levels)
 
+        self.sheet_selection = None
+
         self.src_footprints = []
         self.hl_fps = []
         self.hl_items = []
@@ -74,13 +76,22 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
 
         sheets_for_list = ['/'.join(x[0]) + " (" + x[1] + ")" for x in zip(list_sheets_choices, ref_list)]
         # clear levels
+        self.sheet_selection = self.list_sheets.GetSelections()
+
         self.list_sheets.Clear()
         self.list_sheets.AppendItems(sheets_for_list)
 
-        # by default select all sheets
-        number_of_items = self.list_sheets.GetCount()
-        for i in range(number_of_items):
-            self.list_sheets.Select(i)
+        # if none is selected, select all
+        if len(self.sheet_selection) == 0:
+            number_of_items = self.list_sheets.GetCount()
+            for i in range(number_of_items):
+                self.list_sheets.Select(i)
+        else:
+            for n in range(len(sheets_for_list)):
+                if n in self.sheet_selection:
+                    self.list_sheets.Select(n)
+                else:
+                    self.list_sheets.Deselect(n)
 
         # highlight all footprints on selected level
         (self.hl_fps, self.hl_items) = self.replicator.highlight_set_level(self.src_anchor_fp.sheet_id[0:self.list_levels.GetSelection() + 1],
@@ -296,6 +307,11 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         # this is the source anchor footprint reference
         src_anchor_fp_reference = selected_footprints[0]
+
+        # search for the Replicate.Layout user layer where replication rooms can be defined
+
+        if 'Replicate.Layout' in [board.GetLayerName(x) for x in board.GetEnabledLayers().Users()]:
+            pass
 
         # prepare the replicator
         logger.info("Preparing replicator with " + src_anchor_fp_reference + " as a reference")

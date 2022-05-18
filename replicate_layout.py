@@ -241,12 +241,18 @@ class Replicator:
         # get source tracks
         logger.info("Getting source tracks")
         self.update_progress(self.stage, 4 / 8, None)
+        # tracks which are completely local to sheet get replicated even if they are outside of the bounding box
+        nets_on_sheet = self.get_nets_from_footprints(self.src_footprints)
+        fp_not_on_sheet = self.get_footprints_not_on_sheet(level)
+        other_nets = self.get_nets_from_footprints(fp_not_on_sheet)
+        nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
         # if needed filter them by group
         if by_group and src_anchor_group:
-            self.src_tracks = self.filter_items_by_group(self.get_tracks(self.src_bounding_box, containing),
+            self.src_tracks = self.filter_items_by_group(self.get_tracks(self.src_bounding_box, containing,
+                                                                         nets_exclusively_on_sheet),
                                                          src_anchor_group.GetName())
         else:
-            self.src_tracks = self.get_tracks(self.src_bounding_box, containing)
+            self.src_tracks = self.get_tracks(self.src_bounding_box, containing, nets_exclusively_on_sheet)
         # get source zones
         logger.info("Getting source zones")
         self.update_progress(self.stage, 5 / 8, None)
@@ -1082,7 +1088,13 @@ class Replicator:
         # set highlight on other items
         items = []
         if tracks:
-            tracks = self.get_tracks(fps_bb, containing)
+            # tracks which are completely local to sheet get replicated even if they are outside of the bounding box
+            nets_on_sheet = self.get_nets_from_footprints(src_fps)
+            fp_not_on_sheet = self.get_footprints_not_on_sheet(level)
+            other_nets = self.get_nets_from_footprints(fp_not_on_sheet)
+            nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
+
+            tracks = self.get_tracks(fps_bb, containing, nets_exclusively_on_sheet)
             for t in tracks:
                 t.SetBrightened()
                 items.append(t)
