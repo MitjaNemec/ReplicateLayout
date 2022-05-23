@@ -105,6 +105,12 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         event.Skip()
 
     def on_ok(self, event):
+        # clear highlight on all footprints on selected level
+        # so that duplicated tracks don't remain selected
+        self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
+        self.hl_fps = []
+        self.hl_items = []
+
         selected_items = self.list_sheets.GetSelections()
         selected_names = []
         for item in selected_items:
