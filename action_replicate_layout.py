@@ -53,6 +53,11 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         self.hl_fps = []
         self.hl_items = []
 
+        # select the bottom most level
+        nr_levels = self.list_levels.GetCount()
+        self.list_levels.SetSelection(nr_levels - 1)
+        self.level_changed(None)
+
     def level_changed(self, event):
         index = self.list_levels.GetSelection()
         list_sheets_choices = self.replicator.get_sheets_to_replicate(self.src_anchor_fp,
@@ -102,7 +107,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                                                                            not self.chkbox_intersecting.GetValue())
         pcbnew.Refresh()
 
-        event.Skip()
+        if event is not None:
+            event.Skip()
 
     def on_ok(self, event):
         # clear highlight on all footprints on selected level

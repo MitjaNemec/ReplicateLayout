@@ -1075,6 +1075,7 @@ class Replicator:
         remove_duplicates(self.board)
 
     def highlight_set_level(self, level, tracks, zones, text, drawings, containing):
+        logger.info(f"Level selected: {repr(level)}")
         # find level bounding box
         src_fps = self.get_footprints_on_sheet(level)
         fps_bb = self.get_footprints_bounding_box(src_fps)
