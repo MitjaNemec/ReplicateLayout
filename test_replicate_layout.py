@@ -7,6 +7,7 @@ import sys
 import os
 from compare_boards import compare_boards
 from replicate_layout import Replicator
+from replicate_layout import Settings
 
 
 def update_progress(stage, percentage, message=None):
@@ -43,19 +44,22 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
 
     # get the list selection from user
     dst_sheets = [sheet_list[i] for i in sheets]
+    settings = Settings(rep_tracks=True, rep_zones=True, rep_text=True, rep_drawings=True,
+                        rep_locked_tracks=True, rep_locked_zones=True, rep_locked_text=True, rep_locked_drawings=True,
+                        containing=containing)
     (fps, items) = replicator.highlight_set_level(src_anchor_fp.sheet_id[0:index + 1],
-                                                  True, True, True, True,
-                                                  True)
+                                                  settings)
     replicator.highlight_clear_level(fps, items)
 
     # now we are ready for replication
     replicator.replicate_layout(src_anchor_fp, src_anchor_fp.sheet_id[0:index + 1], dst_sheets,
-                                containing=containing, remove=remove, rm_duplicates=True,
-                                tracks=True, zones=True, text=True, drawings=True, rep_locked=True, by_group=by_group)
+                                settings, remove=remove, rm_duplicates=True,
+                                rep_locked_footprints=True, by_group=by_group)
     out_filename = test_filename.replace("ref", "temp")
     pcbnew.SaveBoard(out_filename, board)
 
-    return  compare_boards(out_filename, test_filename)
+    return compare_boards(out_filename, test_filename)
+
 
 @unittest.SkipTest
 class TestText(unittest.TestCase):

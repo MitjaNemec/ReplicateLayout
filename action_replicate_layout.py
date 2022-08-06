@@ -27,6 +27,7 @@ import sys
 import time
 from .replicate_layout_GUI import ReplicateLayoutGUI
 from .replicate_layout import Replicator
+from .replicate_layout import Settings
 
 
 class ReplicateLayoutDialog(ReplicateLayoutGUI):
@@ -98,13 +99,16 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                 else:
                     self.list_sheets.Deselect(n)
 
+        # parse the settings
+        settings = Settings(rep_tracks=self.chkbox_tracks.GetValue(), rep_zones=self.chkbox_zones.GetValue(),
+                            rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
+                            rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
+                            rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
+                            containing=not self.chkbox_intersecting.GetValue() )
+
         # highlight all footprints on selected level
         (self.hl_fps, self.hl_items) = self.replicator.highlight_set_level(self.src_anchor_fp.sheet_id[0:self.list_levels.GetSelection() + 1],
-                                                                           self.chkbox_tracks.GetValue(),
-                                                                           self.chkbox_zones.GetValue(),
-                                                                           self.chkbox_text.GetValue(),
-                                                                           self.chkbox_drawings.GetValue(),
-                                                                           not self.chkbox_intersecting.GetValue())
+                                                                           settings)
         pcbnew.Refresh()
 
         if event is not None:
@@ -123,15 +127,17 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             selected_names.append(self.list_sheets.GetString(item))
 
         # grab checkboxes
-        replicate_containing_only = not self.chkbox_intersecting.GetValue()
         remove_existing_nets_zones = self.chkbox_remove.GetValue()
-        rep_tracks = self.chkbox_tracks.GetValue()
-        rep_zones = self.chkbox_zones.GetValue()
-        rep_text = self.chkbox_text.GetValue()
-        rep_drawings = self.chkbox_drawings.GetValue()
         remove_duplicates = self.chkbox_remove_duplicates.GetValue()
         rep_locked = self.chkbox_locked.GetValue()
         group_only = self.chkbox_group.GetValue()
+
+        # parse the settings
+        settings = Settings(rep_tracks=self.chkbox_tracks.GetValue(), rep_zones=self.chkbox_zones.GetValue(),
+                            rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
+                            rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
+                            rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
+                            containig=not self.chkbox_intersecting.GetValue() )
 
         # failsafe sometimes on my machine wx does not generate a listbox event
         level = self.list_levels.GetSelection()
@@ -162,14 +168,10 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             self.replicator.update_progress = self.update_progress
             self.replicator.replicate_layout(self.src_anchor_fp, self.src_anchor_fp.sheet_id[0:level + 1],
                                              dst_sheets,
-                                             containing=replicate_containing_only,
+                                             settings,
                                              remove=remove_existing_nets_zones,
-                                             tracks=rep_tracks,
-                                             zones=rep_zones,
-                                             text=rep_text,
-                                             drawings=rep_drawings,
                                              rm_duplicates=remove_duplicates,
-                                             rep_locked=rep_locked,
+                                             rep_locked_footprints=rep_locked,
                                              by_group=group_only)
 
             self.logger.info("Replication complete")

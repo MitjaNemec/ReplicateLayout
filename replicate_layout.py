@@ -29,6 +29,13 @@ from .remove_duplicates import remove_duplicates
 Footprint = namedtuple('Footprint', ['ref', 'fp', 'fp_id', 'sheet_id', 'filename'])
 logger = logging.getLogger(__name__)
 
+Settings = namedtuple('Settings', ['rep_tracks', 'rep_zones', 'rep_text', 'rep_drawings',
+                                   'rep_locked_tracks', 'rep_locked_zones', 'rep_locked_text', 'rep_locked_drawings',
+                                   'containing'],
+                         defaults=[True, True, True, True,
+                                   True, True, True, True,
+                                   False])
+
 
 def rotate_around_center(coordinates, angle):
     """ rotate coordinates for a defined angle in degrees around coordinate center"""
@@ -78,8 +85,9 @@ class Replicator:
         self.update_progress = update_func
 
         self.level = None
+        self.settings = Settings
         self.src_anchor_fp = None
-        self.replicate_locked_items = None
+        self.replicate_locked_footprints = None
         self.src_sheet = None
         self.dst_sheets = []
         self.src_footprints = []
@@ -142,17 +150,18 @@ class Replicator:
         # TODO check if there is any other footprint fit same ID as anchor footprint
 
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
-                         containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked, by_group):
+                         settings, remove, rm_duplicates, rep_locked_footprints, by_group):
         logger.info("Starting replication of sheets: " + repr(dst_sheets)
                     + "\non level: " + repr(level)
-                    + "\nwith tracks=" + repr(tracks) + ", zone=" + repr(zones) + ", text=" + repr(text)
-                    + ", containing=" + repr(containing) + ", remove=" + repr(remove)
-                    + ", locked=" + repr(rep_locked) + ", by_group=" + repr(by_group))
+                    + "\nwith tracks=" + repr(settings.rep_tracks) + ", zone=" + repr(settings.rep_zones)
+                    + ", text=" + repr(settings.rep_text) + ", text=" + repr(settings.rep_drawings)
+                    + ", containing=" + repr(settings.containing) + ", remove=" + repr(remove)
+                    + ", locked footprints=" + repr(rep_locked_footprints) + ", by_group=" + repr(by_group))
 
         self.level = level
         self.src_anchor_fp = src_anchor_fp
         self.dst_sheets = dst_sheets
-        self.replicate_locked_items = rep_locked
+        self.replicate_locked_footprints = rep_locked_footprints
 
         self.src_sheet = level
 
@@ -160,24 +169,24 @@ class Replicator:
             self.max_stages = 2
         else:
             self.max_stages = 0
-        if tracks:
+        if settings.rep_tracks:
             self.max_stages = self.max_stages + 1
-        if zones:
+        if settings.rep_zones:
             self.max_stages = self.max_stages + 1
-        if text:
+        if settings.rep_text:
             self.max_stages = self.max_stages + 1
-        if drawings:
+        if settings.rep_drawings:
             self.max_stages = self.max_stages + 1
         if rm_duplicates:
             self.max_stages = self.max_stages + 1
 
         self.update_progress(self.stage, 0.0, "Preparing for replication")
-        self.prepare_for_replication(level, containing, by_group)
+        self.prepare_for_replication(level, settings.containing, by_group)
         if remove:
             logger.info("Removing tracks and zones, before footprint placement")
             self.stage = 2
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(containing)
+            self.remove_zones_tracks(settings.containing)
         self.stage = 3
         self.update_progress(self.stage, 0.0, "Replicating footprints")
         self.replicate_footprints()
@@ -185,20 +194,20 @@ class Replicator:
             logger.info("Removing tracks and zones, after footprint placement")
             self.stage = 4
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(containing)
-        if tracks:
+            self.remove_zones_tracks(settings.containing)
+        if settings.rep_tracks:
             self.stage = 5
             self.update_progress(self.stage, 0.0, "Replicating tracks")
             self.replicate_tracks()
-        if zones:
+        if settings.rep_zones:
             self.stage = 6
             self.update_progress(self.stage, 0.0, "Replicating zones")
             self.replicate_zones()
-        if text:
+        if settings.rep_text:
             self.stage = 7
             self.update_progress(self.stage, 0.0, "Replicating text")
             self.replicate_text()
-        if drawings:
+        if settings.rep_drawings:
             self.stage = 8
             self.update_progress(self.stage, 0.0, "Replicating drawings")
             self.replicate_drawings()
@@ -720,7 +729,7 @@ class Replicator:
                     dst_fp = list_of_possible_dst_footprints[index]
 
                 # skip locked footprints
-                if dst_fp.fp.IsLocked() is True and self.replicate_locked_items is False:
+                if dst_fp.fp.IsLocked() is True and self.replicate_locked_footprints is False:
                     continue
 
                 # get footprint to clone position
@@ -857,8 +866,15 @@ class Replicator:
             nr_tracks = len(self.src_tracks)
             for track_index in range(nr_tracks):
                 track = self.src_tracks[track_index]
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_tracks)
                 self.update_progress(self.stage, progress, None)
+
+                # skip if locked and user wants this
+                if not self.settings.rep_locked_tracks:
+                    if track.IsLocked():
+                        continue
+
                 # get from which net we are cloning
                 from_net_name = track.GetNetname()
                 # find to net
@@ -915,8 +931,14 @@ class Replicator:
             nr_zones = len(self.src_zones)
             for zone_index in range(nr_zones):
                 zone = self.src_zones[zone_index]
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_zones)
                 self.update_progress(self.stage, progress, None)
+
+                # skip if locked and user wants this
+                if not self.settings.rep_locked_zones:
+                    if zone.IsLocked():
+                        continue
 
                 # get from which net we are cloning
                 from_net_name = zone.GetNetname()
@@ -983,8 +1005,15 @@ class Replicator:
             nr_text = len(self.src_text)
             for text_index in range(nr_text):
                 text = self.src_text[text_index]
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_text)
                 self.update_progress(self.stage, progress, None)
+
+                # skip if locked and user wants this
+
+                if not self.settings.rep_locked_text:
+                    if text.IsLocked():
+                        continue
 
                 new_text = text.Duplicate()
                 new_text.Move(move_vector)
@@ -1025,6 +1054,11 @@ class Replicator:
                 drawing = self.src_drawings[dw_index]
                 progress = progress + (1 / nr_sheets) * (1 / nr_drawings)
                 self.update_progress(self.stage, progress, None)
+
+                # skip if locked and user wants this
+                if not self.settings.rep_locked_drawings:
+                    if drawing.IsLocked():
+                        continue
 
                 new_drawing = drawing.Duplicate()
                 new_drawing.Move(move_vector)
@@ -1074,7 +1108,7 @@ class Replicator:
     def removing_duplicates(self):
         remove_duplicates(self.board)
 
-    def highlight_set_level(self, level, tracks, zones, text, drawings, containing):
+    def highlight_set_level(self, level, settings):
         logger.info(f"Level selected: {repr(level)}")
         # find level bounding box
         src_fps = self.get_footprints_on_sheet(level)
@@ -1088,30 +1122,42 @@ class Replicator:
 
         # set highlight on other items
         items = []
-        if tracks:
+        if settings.rep_tracks:
             # tracks which are completely local to sheet get replicated even if they are outside of the bounding box
             nets_on_sheet = self.get_nets_from_footprints(src_fps)
             fp_not_on_sheet = self.get_footprints_not_on_sheet(level)
             other_nets = self.get_nets_from_footprints(fp_not_on_sheet)
             nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
 
-            tracks = self.get_tracks(fps_bb, containing, nets_exclusively_on_sheet)
+            tracks = self.get_tracks(fps_bb, settings.containing, nets_exclusively_on_sheet)
             for t in tracks:
+                if not settings.rep_locked_tracks:
+                    if t.IsLocked():
+                        continue
                 t.SetBrightened()
                 items.append(t)
-        if zones:
-            zones = self.get_zones(fps_bb, containing)
+        if settings.rep_zones:
+            zones = self.get_zones(fps_bb, settings.containing)
             for zone in zones:
+                if not settings.rep_locked_zones:
+                    if zone.IsLocked():
+                        continue
                 zone.SetBrightened()
                 items.append(zone)
-        if text:
-            text_items = self.get_text_items(fps_bb, containing)
+        if settings.rep_text:
+            text_items = self.get_text_items(fps_bb, settings.containing)
             for t_i in text_items:
+                if not settings.rep_locked_text:
+                    if t_i.IsLocked():
+                        continue
                 t_i.SetBrightened()
                 items.append(t_i)
-        if drawings:
-            dwgs = self.get_drawings(fps_bb, containing)
+        if settings.rep_drawings:
+            dwgs = self.get_drawings(fps_bb, settings.containing)
             for dw in dwgs:
+                if not settings.rep_locked_drawings:
+                    if dw.IsLocked():
+                        continue
                 dw.SetBrightened()
                 items.append(dw)
 
@@ -1125,7 +1171,6 @@ class Replicator:
         # set highlight on other items
         for item in items:
             item.ClearBrightened()
-
 
     @staticmethod
     def fp_set_highlight(fp):
