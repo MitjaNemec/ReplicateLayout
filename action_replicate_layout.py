@@ -137,7 +137,7 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                             rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
                             rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
                             rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
-                            containig=not self.chkbox_intersecting.GetValue() )
+                            containing=not self.chkbox_intersecting.GetValue() )
 
         # failsafe sometimes on my machine wx does not generate a listbox event
         level = self.list_levels.GetSelection()
