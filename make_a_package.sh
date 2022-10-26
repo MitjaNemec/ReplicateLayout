@@ -7,6 +7,7 @@ inkscape replicate_layout_light.svg -w 64 -h 64 -o replicate_layout.png
 
 # refresh the GUI design
 ~/WxFormBuilder/bin/wxformbuilder -g replicate_layout_GUI.fbp
+~/WxFormBuilder/bin/wxformbuilder -g error_dialog_GUI.fpb
 
 # grab version and parse it into metadata.json
 cp metadata_source.json metadata_package.json
@@ -30,6 +31,7 @@ cp action_replicate_layout.py plugins
 cp replicate_layout.py plugins
 cp remove_duplicates.py plugins
 cp replicate_layout_GUI.py plugins
+cp error_dialog_GUI.py plugins
 cp version.txt plugins
 mkdir resources
 cp replicate_layout.png resources/icon.png

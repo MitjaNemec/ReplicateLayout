@@ -26,8 +26,18 @@ import logging
 import sys
 import time
 from .replicate_layout_GUI import ReplicateLayoutGUI
+from .error_dialog_GUI import ErrorDialogGUI
 from .replicate_layout import Replicator
 from .replicate_layout import Settings
+
+
+class ErrorDialog(ErrorDialogGUI):
+    def SetSizeHints(self, sz1, sz2):
+        # DO NOTHING
+        pass
+
+    def __init__(self, parent):
+        super(ErrorDialog, self).__init__(parent)
 
 
 class ReplicateLayoutDialog(ReplicateLayoutGUI):
@@ -58,6 +68,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         nr_levels = self.list_levels.GetCount()
         self.list_levels.SetSelection(nr_levels - 1)
         self.level_changed(None)
+
+    def __del__(self):
+        self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
 
     def level_changed(self, event):
         index = self.list_levels.GetSelection()
@@ -210,13 +223,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             pcbnew.Refresh()
 
             self.logger.exception("Fatal error when running Replicate layoue plugin")
-            caption = 'Replicate Layout'
-            message = "Fatal error when running replicator.\n" \
-                      + "You can raise an issue on GiHub page.\n" \
-                      + "Please attach the replicate_layout.log which you should find in the project folder."
-            dlg = wx.MessageDialog(self, message, caption, wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
+            e_dlg = ErrorDialog(self)
+            e_dlg.ShowModal()
+            e_dlg.Destroy()
             logging.shutdown()
             self.progress_dlg.Destroy()
             event.Skip()
@@ -334,8 +343,8 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         try:
             replicator = Replicator(board)
         except LookupError as exception:
-            caption = 'Replicate Layout'
             logger.exception("Fatal error when making an instance of replicator")
+            caption = 'Replicate Layout'
             message = str(exception)
             dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_ERROR)
             dlg.ShowModal()
@@ -344,13 +353,9 @@ class ReplicateLayout(pcbnew.ActionPlugin):
             return
         except Exception:
             logger.exception("Fatal error when making an instance of replicator")
-            caption = 'Replicate Layout'
-            message = "Fatal error when making an instance of replicator.\n" \
-                      + "You can raise an issue on GiHub page.\n" \
-                      + "Please attach the replicate_layout.log which you should find in the project folder."
-            dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
+            e_dlg = ErrorDialog(self.frame)
+            e_dlg.ShowModal()
+            e_dlg.Destroy()
             logging.shutdown()
             return
 
