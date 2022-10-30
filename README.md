@@ -19,7 +19,7 @@ By default, only objects which are fully contained in the bounding box constitut
 ## Installation
 
 The preferred way to install the plugin is via KiCad's PCM (Plugin and Content Manager). Installation on non-networked
-can be done by downloading the latest [release](https://github.com/MitjaNemec/SaveRestoreLayout/releases) and installing
+can be done by downloading the latest [release](https://github.com/MitjaNemec/ReplicateLayout/releases) and installing
 in with PCM with `Install from file` option 
 
 
