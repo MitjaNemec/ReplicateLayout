@@ -77,6 +77,20 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         list_sheets_choices = self.replicator.get_sheets_to_replicate(self.src_anchor_fp,
                                                                       self.src_anchor_fp.sheet_id[index])
 
+        # show/hide checkbox
+        if self.chkbox_group.GetValue():
+            self.chkbox_include_group_items.Disable()
+            self.chkbox_include_group_items.SetValue(False)
+            self.chkbox_intersecting.Disable()
+        else:
+            self.chkbox_include_group_items.Enable(True)
+            self.chkbox_intersecting.Enable(True)
+            if self.chkbox_intersecting.GetValue():
+                self.chkbox_include_group_items.Enable(True)
+            else:
+                self.chkbox_include_group_items.Disable()
+                self.chkbox_include_group_items.SetValue(False)
+
         # clear highlight on all footprints on selected level
         self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
         self.hl_fps = []
@@ -117,7 +131,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                             rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
                             rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
                             rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
-                            containing=not self.chkbox_intersecting.GetValue() )
+                            intersecting=self.chkbox_intersecting.GetValue(), group_items=self.chkbox_include_group_items.GetValue(),
+                            group_only=self.chkbox_group.GetValue(), locked_fps=self.chkbox_locked.GetValue(),
+                            remove=self.chkbox_remove.GetValue())
 
         # highlight all footprints on selected level
         (self.hl_fps, self.hl_items) = self.replicator.highlight_set_level(self.src_anchor_fp.sheet_id[0:self.list_levels.GetSelection() + 1],
@@ -341,7 +357,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         # TODO return if replication is not possible at all
         try:
-            replicator = Replicator(board)
+            replicator = Replicator(board, src_anchor_fp_reference)
         except LookupError as exception:
             logger.exception("Fatal error when making an instance of replicator")
             caption = 'Replicate Layout'
