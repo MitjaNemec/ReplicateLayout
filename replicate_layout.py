@@ -858,11 +858,6 @@ class Replicator:
                 progress = progress + (1 / nr_sheets) * (1 / nr_tracks)
                 self.update_progress(self.stage, progress, None)
 
-                # skip if locked and user wants this
-                if not self.settings.rep_locked_tracks:
-                    if track.IsLocked():
-                        continue
-
                 # get from which net we are cloning
                 from_net_name = track.GetNetname()
                 # find to net
@@ -922,11 +917,6 @@ class Replicator:
 
                 progress = progress + (1 / nr_sheets) * (1 / nr_zones)
                 self.update_progress(self.stage, progress, None)
-
-                # skip if locked and user wants this
-                if not self.settings.rep_locked_zones:
-                    if zone.IsLocked():
-                        continue
 
                 # get from which net we are cloning
                 from_net_name = zone.GetNetname()
@@ -997,11 +987,6 @@ class Replicator:
                 progress = progress + (1 / nr_sheets) * (1 / nr_text)
                 self.update_progress(self.stage, progress, None)
 
-                # skip if locked and user wants this
-                if not self.settings.rep_locked_text:
-                    if text.IsLocked():
-                        continue
-
                 new_text = text.Duplicate()
                 new_text.Move(move_vector)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
@@ -1042,11 +1027,6 @@ class Replicator:
                 progress = progress + (1 / nr_sheets) * (1 / nr_drawings)
                 self.update_progress(self.stage, progress, None)
 
-                # skip if locked and user wants this
-                if not self.settings.rep_locked_drawings:
-                    if drawing.IsLocked():
-                        continue
-
                 new_drawing = drawing.Duplicate()
                 new_drawing.Move(move_vector)
 
@@ -1080,6 +1060,7 @@ class Replicator:
             nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
 
             # remove items
+            # TODO refactor out the old selection code
             tracks_for_removal = self.get_tracks(bounding_box, containing, nets_exclusively_on_sheet)
             for track in tracks_for_removal:
                 # minus the tracks in source bounding box
