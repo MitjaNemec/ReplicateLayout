@@ -65,6 +65,19 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     return compare_boards(out_filename, test_filename)
 
 
+class TestAfvincent_issue(unittest.TestCase):
+    def setUp(self):
+        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "afvincent_issue"))
+
+    def test_inner(self):
+        logger.info("Testing text placement")
+        input_filename = 'test_kicad_replicate_v2.kicad_pcb'
+        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
+        err = test_file(input_filename, test_filename, 'Q1', level=0, sheets=(0, 1),
+                        containing=False, remove=True, by_group=True)
+        # self.assertEqual(err, 0, "inner levels failed")
+
+
 @unittest.SkipTest
 class TestText(unittest.TestCase):
     def setUp(self):
@@ -78,8 +91,8 @@ class TestText(unittest.TestCase):
                         containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
-
-class TestByRef(unittest.TestCase):
+@unittest.SkipTest
+class TestOfficial(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
 
