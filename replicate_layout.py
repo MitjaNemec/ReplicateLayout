@@ -235,7 +235,7 @@ class Replicator:
             logger.info("Removing tracks and zones, before footprint placement")
             self.stage = 2
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(settings.containing)
+            self.remove_zones_tracks(settings.remove)
         self.stage = 3
         self.update_progress(self.stage, 0.0, "Replicating footprints")
         self.replicate_footprints()
@@ -243,7 +243,7 @@ class Replicator:
             logger.info("Removing tracks and zones, after footprint placement")
             self.stage = 4
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(settings.containing)
+            self.remove_zones_tracks(settings.remove)
         if settings.rep_tracks:
             self.stage = 5
             self.update_progress(self.stage, 0.0, "Replicating tracks")

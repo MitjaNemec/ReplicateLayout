@@ -166,7 +166,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                             rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
                             rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
                             rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
-                            containing=not self.chkbox_intersecting.GetValue() )
+                            intersecting=self.chkbox_intersecting.GetValue(), group_items=self.chkbox_include_group_items.GetValue(),
+                            group_only=self.chkbox_group.GetValue(), locked_fps=self.chkbox_locked.GetValue(),
+                            remove=self.chkbox_remove.GetValue())
 
         # failsafe sometimes on my machine wx does not generate a listbox event
         level = self.list_levels.GetSelection()
@@ -197,12 +199,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             self.replicator.update_progress = self.update_progress
             self.replicator.replicate_layout(self.src_anchor_fp, self.src_anchor_fp.sheet_id[0:level + 1],
                                              dst_sheets,
-                                             settings,
-                                             remove=remove_existing_nets_zones,
-                                             rm_duplicates=remove_duplicates,
-                                             rep_locked_footprints=rep_locked,
-                                             by_group=group_only)
-
+                                             settings, remove_duplicates)
+                                             
             self.logger.info("Replication complete")
             # clear highlight on all footprints on selected level
             self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
