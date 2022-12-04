@@ -235,7 +235,7 @@ class Replicator:
             logger.info("Removing tracks and zones, before footprint placement")
             self.stage = 2
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(settings.remove)
+            self.remove_zones_tracks(settings.intersecting)
         self.stage = 3
         self.update_progress(self.stage, 0.0, "Replicating footprints")
         self.replicate_footprints()
@@ -243,7 +243,7 @@ class Replicator:
             logger.info("Removing tracks and zones, after footprint placement")
             self.stage = 4
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(settings.remove)
+            self.remove_zones_tracks(settings.intersecting)
         if settings.rep_tracks:
             self.stage = 5
             self.update_progress(self.stage, 0.0, "Replicating tracks")
@@ -1084,7 +1084,7 @@ class Replicator:
 
                 self.board.Add(new_drawing)
 
-    def remove_zones_tracks(self, containing):
+    def remove_zones_tracks(self, intersecting):
         for index in range(len(self.dst_sheets)):
             sheet = self.dst_sheets[index]
             self.update_progress(self.stage, index / len(self.dst_sheets), None)
@@ -1103,19 +1103,19 @@ class Replicator:
 
             # remove items
             # TODO refactor out the old selection code
-            tracks_for_removal = self.get_tracks(bounding_box, containing, nets_exclusively_on_sheet)
+            tracks_for_removal = self.get_tracks(bounding_box, not intersecting, nets_exclusively_on_sheet)
             for track in tracks_for_removal:
                 # minus the tracks in source bounding box
                 if track not in self.src_tracks:
                     self.board.RemoveNative(track)
-            zones_for_removal = self.get_zones(bounding_box, containing, nets_exclusively_on_sheet)
+            zones_for_removal = self.get_zones(bounding_box, not intersecting, nets_exclusively_on_sheet)
             for zone in zones_for_removal:
                 # minus the zones in source bounding box
                 if zone not in self.src_zones:
                     self.board.RemoveNative(zone)
-            for text_item in self.get_text_items(bounding_box, containing):
+            for text_item in self.get_text_items(bounding_box, not intersecting):
                 self.board.RemoveNative(text_item)
-            for drawing in self.get_drawings(bounding_box, containing):
+            for drawing in self.get_drawings(bounding_box, not intersecting):
                 self.board.RemoveNative(drawing)
 
     def removing_duplicates(self):
