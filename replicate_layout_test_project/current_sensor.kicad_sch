@@ -309,7 +309,7 @@
     (uuid b8181453-051d-47c0-a9e9-ca9c571663da)
   )
 
-  (symbol (lib_id "power:GND") (at 120.65 116.84 0)
+  (symbol (lib_id "power:GND") (at 120.65 116.84 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 03b222f2-b421-4321-bd3f-6d6f6cf41dce)
     (property "Reference" "#PWR0402" (id 0) (at 120.65 123.19 0)
@@ -325,7 +325,7 @@
     (pin "1" (uuid ef580b72-4fff-4db9-b8c7-073293d6aac5))
   )
 
-  (symbol (lib_id "power:+3V3") (at 120.65 96.52 0)
+  (symbol (lib_id "power:+3V3") (at 120.65 96.52 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 3a06f183-ff8d-4139-aab1-17277bcd3e4c)
     (property "Reference" "#PWR0401" (id 0) (at 120.65 100.33 0)
@@ -341,7 +341,7 @@
     (pin "1" (uuid e0bef21d-e5f6-4b90-91be-f07ba1c44a25))
   )
 
-  (symbol (lib_id "power:+3V3") (at 128.27 114.3 0)
+  (symbol (lib_id "power:+3V3") (at 128.27 114.3 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 4c4cb891-c0cd-40b4-a398-2655edb53c38)
     (property "Reference" "#PWR0403" (id 0) (at 128.27 118.11 0)
@@ -357,7 +357,7 @@
     (pin "1" (uuid d13af2d2-9496-4fa2-b070-6d864cd24d55))
   )
 
-  (symbol (lib_id "Device:R_Shunt") (at 107.95 86.36 270)
+  (symbol (lib_id "Device:R_Shunt") (at 107.95 86.36 270) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 51088ed1-115e-4f03-8174-d6c687a76876)
     (property "Reference" "R401" (id 0) (at 107.95 81.915 90))
@@ -374,7 +374,7 @@
     (pin "4" (uuid abd9a564-5eb6-4444-83ed-fabd2f7682ef))
   )
 
-  (symbol (lib_id "Amplifier_Current:INA240A1D") (at 123.19 106.68 0)
+  (symbol (lib_id "Amplifier_Current:INA240A1D") (at 123.19 106.68 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid a930eabe-700c-4750-b46e-b5e67c9c2f91)
     (property "Reference" "U401" (id 0) (at 123.19 100.33 0)

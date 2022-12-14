@@ -375,6 +375,29 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         src_anchor_fp = replicator.get_fp_by_ref(src_anchor_fp_reference)
 
+        # check if source anchor footprint is on root level
+        if len(src_anchor_fp.filename) == 0:
+            caption = 'Replicate layout'
+            message = "Selected anchor footprint is on the root schematic sheet. Replication is not possible."
+            dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_INFORMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
+        # check if there are at least two sheets pointing to same hierarchical file that the source anchor footprint belongs to
+        count = 0
+        for filename in replicator.dict_of_sheets.values():
+            if filename in src_anchor_fp.filename:
+                count = count + 1
+        if count < 2:
+            caption = 'Replicate layout'
+            message = "Selected anchor footprint is on the schematic sheet which does not have multiple instances." \
+                      " Replication is not possible."
+            dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_INFORMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
         logger.info(f'source anchor footprint is {repr(src_anchor_fp.ref)}\n'
                     f'Located on: {repr(src_anchor_fp.sheet_id)}\n'
                     f'With filenames: {repr(src_anchor_fp.filename)}\n'
@@ -395,18 +418,23 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         # show dialog
         logger.info("Showing dialog")
-        dlg = ReplicateLayoutDialog(self.frame, replicator, src_anchor_fp_reference, logger)
-        dlg.CenterOnParent()
-
-        # find position of right toolbar
-        toolbar_pos = self.frame.FindWindowById(pcbnew.ID_V_TOOLBAR).GetScreenPosition()
-        logger.info("Toolbar position: " + repr(toolbar_pos))
-
-        # find site of dialog
-        size = dlg.GetSize()
-        # place the dialog by the right toolbar
-        dialog_position = wx.Point(toolbar_pos[0] - size[0], toolbar_pos[1])
-        logger.info("Dialog position: " + repr(dialog_position))
-        dlg.SetPosition(dialog_position)
-
-        dlg.Show()
+        try:
+            dlg = ReplicateLayoutDialog(self.frame, replicator, src_anchor_fp_reference, logger)
+            dlg.CenterOnParent()
+            # find position of right toolbar
+            toolbar_pos = self.frame.FindWindowById(pcbnew.ID_V_TOOLBAR).GetScreenPosition()
+            logger.info("Toolbar position: " + repr(toolbar_pos))
+            # find site of dialog
+            size = dlg.GetSize()
+            # place the dialog by the right toolbar
+            dialog_position = wx.Point(toolbar_pos[0] - size[0], toolbar_pos[1])
+            logger.info("Dialog position: " + repr(dialog_position))
+            dlg.SetPosition(dialog_position)
+            dlg.Show()
+        except Exception:
+            logger.exception("Fatal error when making an instance of replicator")
+            e_dlg = ErrorDialog(self.frame)
+            e_dlg.ShowModal()
+            e_dlg.Destroy()
+            logging.shutdown()
+            return

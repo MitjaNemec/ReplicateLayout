@@ -131,7 +131,7 @@
     (uuid 274414ab-1890-467f-a7af-4d612100a2a6)
   )
 
-  (symbol (lib_id "Connector:Pusa_6mm") (at 157.48 105.41 0)
+  (symbol (lib_id "Connector:Pusa_6mm") (at 157.48 105.41 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 2d6ea13a-17ad-41a9-898c-445597fb5893)
     (property "Reference" "J201" (id 0) (at 157.48 102.87 0))
@@ -147,7 +147,7 @@
     (pin "1" (uuid 90f407e6-ab50-4368-8e33-bc23c233f276))
   )
 
-  (symbol (lib_id "Connector:Pusa_6mm") (at 157.48 135.89 0)
+  (symbol (lib_id "Connector:Pusa_6mm") (at 157.48 135.89 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid f213e37e-a72d-4929-af97-07b2a1da85f0)
     (property "Reference" "J202" (id 0) (at 157.48 133.35 0))

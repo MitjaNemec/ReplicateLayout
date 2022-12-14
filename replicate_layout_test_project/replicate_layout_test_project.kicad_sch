@@ -620,6 +620,18 @@
     )
   )
 
+  (sheet (at 38.1 25.4) (size 25.4 25.4) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid) (color 0 0 0 0))
+    (fill (color 0 0 0 0.0000))
+    (uuid 4434b92d-b719-4ab5-a58e-7a9a1e1f84e7)
+    (property "Sheet name" "single" (id 0) (at 38.1 24.6884 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheet file" "single.kicad_sch" (id 1) (at 38.1 51.3846 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+  )
+
   (sheet (at 157.48 19.05) (size 25.4 25.4) (fields_autoplaced)
     (stroke (width 0.1524) (type solid) (color 0 0 0 0))
     (fill (color 0 0 0 0.0000))
@@ -683,6 +695,7 @@
     (path "/064636e8-22cf-4697-b1a6-7eccd3abe6c4/0635105a-4279-41fa-8671-05374d9628ac" (page "12"))
     (path "/064636e8-22cf-4697-b1a6-7eccd3abe6c4/34cc6c9e-24b0-428f-84d8-5d06d6f728e7" (page "13"))
     (path "/7d3ced03-e1a1-476b-8e28-170d221aaf14" (page "14"))
+    (path "/4434b92d-b719-4ab5-a58e-7a9a1e1f84e7" (page "15"))
   )
 
   (symbol_instances
@@ -1021,6 +1034,9 @@
     )
     (path "/7d3ced03-e1a1-476b-8e28-170d221aaf14/4c9cdd80-69b9-4265-b634-11a9fccc0dd2"
       (reference "R1402") (unit 1) (value "20R") (footprint "Passives:R1206M")
+    )
+    (path "/4434b92d-b719-4ab5-a58e-7a9a1e1f84e7/e5eebc7a-9eb9-4a8c-9195-f72239383f04"
+      (reference "R1501") (unit 1) (value "R1206") (footprint "Passives:R1206M")
     )
     (path "/f19c9655-8ddb-411a-96dd-bd986870c3c6"
       (reference "U101") (unit 1) (value "TMS320F28027DA") (footprint "Package_SO:TSSOP-38_4.4x9.7mm_P0.5mm")
