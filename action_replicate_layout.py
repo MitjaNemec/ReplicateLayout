@@ -374,7 +374,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
             return
 
         src_anchor_fp = replicator.get_fp_by_ref(src_anchor_fp_reference)
-
+        
         # check if source anchor footprint is on root level
         if len(src_anchor_fp.filename) == 0:
             caption = 'Replicate layout'
@@ -385,9 +385,10 @@ class ReplicateLayout(pcbnew.ActionPlugin):
             return
 
         # check if there are at least two sheets pointing to same hierarchical file that the source anchor footprint belongs to
-        count = 0
-        for filename in replicator.dict_of_sheets.values():
-            if filename in src_anchor_fp.filename:
+        count = 0        
+        for filename in replicator.dict_of_sheets.values():           
+            # filename contain sheet name and sheet filename, check only sheet filename.
+            if filename[1] in src_anchor_fp.filename:
                 count = count + 1
         if count < 2:
             caption = 'Replicate layout'
