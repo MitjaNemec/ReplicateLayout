@@ -26,13 +26,13 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     # check if there are at least two sheets pointing to same hierarchical file that the source anchor footprint belongs to
     count = 0
     for filename in replicator.dict_of_sheets.values():
-        if filename in src_anchor_fp.filename:
+        if filename[1] in src_anchor_fp.filename:
             count = count + 1
     if count < 2:
-        pass
+        raise Exception
     # check if source anchor footprint is on root leve
     if len(src_anchor_fp.filename) == 0:
-        pass
+        raise Exception
 
     # have the user select replication level
     levels = src_anchor_fp.filename
@@ -76,15 +76,16 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     return compare_boards(out_filename, test_filename)
 
 
-class TestAfvincent_issue(unittest.TestCase):
+@unittest.SkipTest
+class manotam_issue_issue(unittest.TestCase):
     def setUp(self):
-        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "afvincent_issue"))
+        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "manotam_issue"))
 
     def test_inner(self):
         logger.info("Testing text placement")
-        input_filename = 'test_kicad_replicate_v2.kicad_pcb'
+        input_filename = 'Test.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'Q301', level=0, sheets=(0, 1),
+        err = test_file(input_filename, test_filename, 'C1', level=0, sheets=(0, 1),
                         containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
@@ -102,7 +103,7 @@ class TestText(unittest.TestCase):
                         containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
-@unittest.SkipTest
+
 class TestOfficial(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))

@@ -148,11 +148,11 @@ class Replicator:
         if len(unique_sheet_ids) > len(self.dict_of_sheets):
             # open root schematics file and parse for other schematics files
             # This might be prone to errors regarding path discovery
-            # thus it is used only in corner cases            
+            # thus it is used only in corner cases
             schematic_found = {}
             self.parse_schematic_files(self.sch_filename, schematic_found)
             self.dict_of_sheets = schematic_found
-            
+
         # construct a list of all the footprints
         for fp in footprints:
             try:
@@ -186,13 +186,14 @@ class Replicator:
                 sheetfile = ""
                 sheet_id = ""
                 for j in range(i,i+10):
+                    line_con = contents[j]
                     if "(uuid " in contents[j]:
-                        sheet_id = contents[j].replace("(uuid ",'').rstrip(")").upper().strip()
+                        sheet_id = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
                     if "(property \"Sheet name\"" in contents[j]:
-                        sheetname = contents[j].replace("(property \"Sheet name\"",'').split()[0].replace("\"", "")
+                        sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
                     if "(property \"Sheet file\"" in contents[j]:
-                        sheetfile = contents[j].replace("(property \"Sheet file\"",'').split()[0].replace("\"", "")
-                # here I should find all sheet data                
+                        sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                # here I should find all sheet data
                 dict_of_sheets[sheet_id] = [sheetname, sheetfile]
                 # open a newfound file and look for nested sheets
                 self.parse_schematic_files(sheetfile, dict_of_sheets)
@@ -305,7 +306,7 @@ class Replicator:
         self.src_drawings = self.get_drawings_for_replication(self.src_bounding_box, settings)
 
     @staticmethod
-    def get_footprint_id(footprint):               
+    def get_footprint_id(footprint):
         path = footprint.GetPath().AsString().upper().replace('00000000-0000-0000-0000-0000', '').split("/")
         if len(path) != 1:
             fp_id = path[-1]
@@ -954,22 +955,27 @@ class Replicator:
             net_pairs, net_dict = self.get_net_pairs(sheet)
             # go through all the zones
             nr_zones = len(self.src_zones)
-            for zone_index in range(nr_zones):                
+            for zone_index in range(nr_zones):
                 zone = self.src_zones[zone_index]
-                
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_zones)
                 self.update_progress(self.stage, progress, None)
 
                 # get from which net we are cloning
-                from_net_name = zone.GetNetname()                
+                from_net_name = zone.GetNetname()
                 # if zone is not on copper layer it does not matter on which net it is
-                if not zone.IsOnCopperLayer():                    
+                if not zone.IsOnCopperLayer():
                     tup = [('', '')]
                 else:                    
                     if from_net_name:                     
                         tup = [item for item in net_pairs if item[0] == from_net_name]                        
+                        # With proper layout I don't see why this should happen
+                        # TODO find a case when this happens in order to log it with proper message
                         if len(tup) == 0:
-                            tup = [('', '')]                                                   
+                            logger.info("When replicating zone from source net " + repr(from_net_name) +
+                                        " we did not find matching destination net")
+                            tup = [('', '')]
+                    # if source zone does not have a netname defined then destination zone also does not need it
                     else:                        
                         tup = [('', '')]
 
@@ -978,7 +984,7 @@ class Replicator:
                     # Allow keepout zones to be cloned.
                     if not zone.IsOnCopperLayer():
                         tup = [('', '')]
-                
+
                 # start the clone
                 to_net_name = tup[0][1]
                 if to_net_name == u'':

@@ -374,7 +374,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
             return
 
         src_anchor_fp = replicator.get_fp_by_ref(src_anchor_fp_reference)
-        
+
         # check if source anchor footprint is on root level
         if len(src_anchor_fp.filename) == 0:
             caption = 'Replicate layout'
