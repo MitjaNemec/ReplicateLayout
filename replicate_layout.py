@@ -24,10 +24,20 @@ import os
 import logging
 import itertools
 import math
-from .remove_duplicates import remove_duplicates
+try:
+    from .remove_duplicates import remove_duplicates
+except:
+    from remove_duplicates import remove_duplicates
 
 Footprint = namedtuple('Footprint', ['ref', 'fp', 'fp_id', 'sheet_id', 'filename'])
 logger = logging.getLogger(__name__)
+
+Settings = namedtuple('Settings', ['rep_tracks', 'rep_zones', 'rep_text', 'rep_drawings',
+                                   'rep_locked_tracks', 'rep_locked_zones', 'rep_locked_text', 'rep_locked_drawings',
+                                   'intersecting', 'group_items', 'group_only', 'locked_fps', 'remove'],
+                         defaults=[True, True, True, True,
+                                   True, True, True, True,
+                                   False, False, False, False, False])
 
 
 def rotate_around_center(coordinates, angle):
@@ -71,15 +81,17 @@ def flipped_angle(angle):
 
 
 class Replicator:
-    def __init__(self, board, update_func=update_progress):
+    def __init__(self, board, src_anchor_fp_ref, update_func=update_progress):
         self.board = board
         self.stage = 1
         self.max_stages = 0
         self.update_progress = update_func
 
         self.level = None
+        self.settings = Settings
         self.src_anchor_fp = None
-        self.replicate_locked_items = None
+        self.src_anchor_fp_group = None
+        self.replicate_locked_footprints = None
         self.src_sheet = None
         self.dst_sheets = []
         self.src_footprints = []
@@ -91,7 +103,7 @@ class Replicator:
         self.src_drawings = []
 
         self.pcb_filename = os.path.abspath(board.GetFileName())
-        self.sch_filename = self.pcb_filename.replace(".kicad_pcb", ".sch")
+        self.sch_filename = self.pcb_filename.replace(".kicad_pcb", ".kicad_sch")
         self.project_folder = os.path.dirname(self.pcb_filename)
 
         # construct a list of footprints with all pertinent data
@@ -101,7 +113,14 @@ class Replicator:
 
         # get dict_of_sheets from layout data only (through footprint Sheetfile and Sheetname properties)
         self.dict_of_sheets = {}
+        unique_sheet_ids = set()
         for fp in footprints:
+            # construct a set of unique sheets from footprint properties
+            path = fp.GetPath().AsString().upper().replace('00000000-0000-0000-0000-0000', '').split("/")
+            sheet_path = path[0:-1]
+            for x in sheet_path:
+                unique_sheet_ids.add(x)
+
             sheet_id = self.get_sheet_id(fp)
             try:
                 sheet_file = fp.GetProperty('Sheetfile')
@@ -124,6 +143,15 @@ class Replicator:
             else:
                 logger.debug("Footprint " + fp.GetReference() + " on root level")
                 continue
+        # catch corner cases with nested hierarchy, where some hierarchical pages don't have any footprints
+        unique_sheet_ids.remove("")
+        if len(unique_sheet_ids) > len(self.dict_of_sheets):
+            # open root schematics file and parse for other schematics files
+            # This might be prone to errors regarding path discovery
+            # thus it is used only in corner cases
+            schematic_found = {}
+            self.parse_schematic_files(self.sch_filename, schematic_found)
+            self.dict_of_sheets = schematic_found
 
         # construct a list of all the footprints
         for fp in footprints:
@@ -138,67 +166,98 @@ class Replicator:
                 self.footprints.append(fp_tuple)
             except KeyError:
                 pass
-        pass
+
+        # find anchor footprint and it's group
+        self.src_anchor_fp = self.get_fp_by_ref(src_anchor_fp_ref)
+        if self.src_anchor_fp.fp.GetParentGroup():
+            self.src_anchor_fp_group = self.src_anchor_fp.fp.GetParentGroup().GetName()
+        else:
+            self.src_anchor_fp_group = None
         # TODO check if there is any other footprint fit same ID as anchor footprint
 
+    def parse_schematic_files(self, filename, dict_of_sheets):
+        with open(filename) as f:
+            contents = f.read().split("\n")
+        # find (sheet (at and then look in next few lines for new schematics file
+        for i in range(len(contents)):
+            line = contents[i]
+            if "(sheet (at" in line:
+                sheetname = ""
+                sheetfile = ""
+                sheet_id = ""
+                for j in range(i,i+10):
+                    line_con = contents[j]
+                    if "(uuid " in contents[j]:
+                        sheet_id = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
+                    if "(property \"Sheet name\"" in contents[j]:
+                        sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
+                    if "(property \"Sheet file\"" in contents[j]:
+                        sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                # here I should find all sheet data
+                dict_of_sheets[sheet_id] = [sheetname, sheetfile]
+                # open a newfound file and look for nested sheets
+                self.parse_schematic_files(sheetfile, dict_of_sheets)
+        return
+
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
-                         containing, remove, tracks, zones, text, drawings, rm_duplicates, rep_locked, by_group):
+                         settings, rm_duplicates):
         logger.info("Starting replication of sheets: " + repr(dst_sheets)
                     + "\non level: " + repr(level)
-                    + "\nwith tracks=" + repr(tracks) + ", zone=" + repr(zones) + ", text=" + repr(text)
-                    + ", containing=" + repr(containing) + ", remove=" + repr(remove)
-                    + ", locked=" + repr(rep_locked) + ", by_group=" + repr(by_group))
+                    + "\nwith tracks=" + repr(settings.rep_tracks) + ", zone=" + repr(settings.rep_zones)
+                    + ", text=" + repr(settings.rep_text) + ", text=" + repr(settings.rep_drawings)
+                    + ", intersecting=" + repr(settings.intersecting) + ", remove=" + repr(settings.remove)
+                    + ", locked footprints=" + repr(settings.locked_fps) + ", group_only=" + repr(settings.group_only))
 
         self.level = level
         self.src_anchor_fp = src_anchor_fp
         self.dst_sheets = dst_sheets
-        self.replicate_locked_items = rep_locked
+        self.replicate_locked_footprints = settings.locked_fps
 
         self.src_sheet = level
 
-        if remove:
+        if settings.remove:
             self.max_stages = 2
         else:
             self.max_stages = 0
-        if tracks:
+        if settings.rep_tracks:
             self.max_stages = self.max_stages + 1
-        if zones:
+        if settings.rep_zones:
             self.max_stages = self.max_stages + 1
-        if text:
+        if settings.rep_text:
             self.max_stages = self.max_stages + 1
-        if drawings:
+        if settings.rep_drawings:
             self.max_stages = self.max_stages + 1
         if rm_duplicates:
             self.max_stages = self.max_stages + 1
 
         self.update_progress(self.stage, 0.0, "Preparing for replication")
-        self.prepare_for_replication(level, containing, by_group)
-        if remove:
+        self.prepare_for_replication(level, settings)
+        if settings.remove:
             logger.info("Removing tracks and zones, before footprint placement")
             self.stage = 2
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(containing)
+            self.remove_zones_tracks(settings.intersecting)
         self.stage = 3
         self.update_progress(self.stage, 0.0, "Replicating footprints")
         self.replicate_footprints()
-        if remove:
+        if settings.remove:
             logger.info("Removing tracks and zones, after footprint placement")
             self.stage = 4
             self.update_progress(self.stage, 0.0, "Removing zones and tracks")
-            self.remove_zones_tracks(containing)
-        if tracks:
+            self.remove_zones_tracks(settings.intersecting)
+        if settings.rep_tracks:
             self.stage = 5
             self.update_progress(self.stage, 0.0, "Replicating tracks")
             self.replicate_tracks()
-        if zones:
+        if settings.rep_zones:
             self.stage = 6
             self.update_progress(self.stage, 0.0, "Replicating zones")
             self.replicate_zones()
-        if text:
+        if settings.rep_text:
             self.stage = 7
             self.update_progress(self.stage, 0.0, "Replicating text")
-            self.replicate_text()
-        if drawings:
+            # self.replicate_text()
+        if settings.rep_drawings:
             self.stage = 8
             self.update_progress(self.stage, 0.0, "Replicating drawings")
             self.replicate_drawings()
@@ -210,71 +269,41 @@ class Replicator:
         filler = pcbnew.ZONE_FILLER(self.board)
         filler.Fill(self.board.Zones())
 
-    def prepare_for_replication(self, level, containing, by_group=False):
+    def prepare_for_replication(self, level, settings):
         # get a list of source footprints for replication
         logger.info("Getting the list of source footprints")
         self.update_progress(self.stage, 0 / 8, None)
 
         # if needed filter them by group
-        src_anchor_group = self.src_anchor_fp.fp.GetParentGroup()
         anchor_sheet_footprints = self.get_footprints_on_sheet(level)
-        if by_group and src_anchor_group:
-            self.src_footprints = self.filter_footprints_by_group(anchor_sheet_footprints,
-                                                                  src_anchor_group.GetName())
-            excluded_footprints = [fp for fp in anchor_sheet_footprints if fp not in self.src_footprints]
-        else:
-            self.src_footprints = anchor_sheet_footprints
-            excluded_footprints = []
+        self.src_bounding_box = self.get_footprints_bounding_box(anchor_sheet_footprints)
+        self.src_footprints = self.get_footprints_for_replication(level, self.src_bounding_box, settings)
+        excluded_footprints = [fp for fp in anchor_sheet_footprints if fp not in self.src_footprints]
 
         # get the rest of the footprints
         logger.info("Getting the list of all the remaining footprints")
-        self.update_progress(self.stage, 1 / 8, None)
+        self.update_progress(self.stage, 1 / 6, None)
         self.other_footprints = self.get_footprints_not_on_sheet(level)
         self.other_footprints.extend(excluded_footprints)
-        # get nets local to source footprints
-        logger.info("Getting nets local to source footprints")
-        self.update_progress(self.stage, 2 / 8, None)
-        # get source bounding box
-        logger.info("Getting source bounding box")
-        self.update_progress(self.stage, 3 / 8, None)
-        self.src_bounding_box = self.get_footprints_bounding_box(self.src_footprints)
+        # TODO we might need to recalculate bounding box - if so, this has to be ported to highlighting code
+
         # get source tracks
         logger.info("Getting source tracks")
-        self.update_progress(self.stage, 4 / 8, None)
-        # if needed filter them by group
-        if by_group and src_anchor_group:
-            self.src_tracks = self.filter_items_by_group(self.get_tracks(self.src_bounding_box, containing),
-                                                         src_anchor_group.GetName())
-        else:
-            self.src_tracks = self.get_tracks(self.src_bounding_box, containing)
+        self.update_progress(self.stage, 2 / 6, None)
+        self.src_tracks = self.get_tracks_for_replication(level, self.src_bounding_box, settings)
         # get source zones
         logger.info("Getting source zones")
-        self.update_progress(self.stage, 5 / 8, None)
-        # if needed filter them by group
-        if by_group and src_anchor_group:
-            self.src_zones = self.filter_items_by_group(self.get_zones(self.src_bounding_box, containing),
-                                                        src_anchor_group.GetName())
-        else:
-            self.src_zones = self.get_zones(self.src_bounding_box, containing)
+        self.update_progress(self.stage, 3 / 6, None)
+        self.src_zones = self.get_zones_for_replication(level, self.src_bounding_box, settings)
         # get source text items
         logger.info("Getting source text items")
-        self.update_progress(self.stage, 6 / 8, None)
-        # if needed filter them by group
-        if by_group and src_anchor_group:
-            self.src_text = self.filter_items_by_group(self.get_text_items(self.src_bounding_box, containing),
-                                                       src_anchor_group.GetName())
-        else:
-            self.src_text = self.get_text_items(self.src_bounding_box, containing)
+        self.update_progress(self.stage, 4 / 6, None)
+        self.src_text = self.get_text_for_replication(self.src_bounding_box, settings)
         # get source drawings
         logger.info("Getting source drawing items")
-        self.update_progress(self.stage, 7 / 8, None)
+        self.update_progress(self.stage, 5 / 6, None)
         # if needed filter them by group
-        if by_group and src_anchor_group:
-            self.src_drawings = self.filter_items_by_group(self.get_drawings(self.src_bounding_box, containing),
-                                                           src_anchor_group.GetName())
-        else:
-            self.src_drawings = self.get_drawings(self.src_bounding_box, containing)
-        self.update_progress(self.stage, 8 / 8, None)
+        self.src_drawings = self.get_drawings_for_replication(self.src_bounding_box, settings)
 
     @staticmethod
     def get_footprint_id(footprint):
@@ -450,7 +479,7 @@ class Replicator:
 
         position = pcbnew.VECTOR2I(left, top)
         size = pcbnew.VECTOR2I(right - left, bottom - top)
-        bounding_box = pcbnew.EDA_RECT(position, size)
+        bounding_box = pcbnew.BOX2I(position, size)
         return bounding_box
 
     def get_tracks(self, bounding_box, containing, exclusive_nets=None):
@@ -474,7 +503,9 @@ class Replicator:
                     tracks.append(track)
         return tracks
 
-    def get_zones(self, bounding_box, containing):
+    def get_zones(self, bounding_box, containing, exclusive_nets=None):
+        if exclusive_nets is None:
+            exclusive_nets = []
         # get all zones
         all_zones = []
         for zone_id in range(self.board.GetAreaCount()):
@@ -486,36 +517,51 @@ class Replicator:
             if (containing and bounding_box.Contains(zone_bb)) or \
                     (not containing and bounding_box.Intersects(zone_bb)):
                 zones.append(zone)
+            # even if track is not within the bounding box, but is on the completely local net
+            else:
+                if zone.GetNetname() in exclusive_nets:
+                    # and add it to the
+                    zones.append(zone)
         return zones
 
-    def get_text_items(self, bounding_box, containing):
+    def get_text_items(self, bounding_box, containing, outside=False):
         # get all text objects in bounding box
         all_text = []
         for drawing in self.board.GetDrawings():
             if not isinstance(drawing, pcbnew.PCB_TEXT):
                 continue
-            text_bb = drawing.GetBoundingBox()
-            if containing:
-                if bounding_box.Contains(text_bb):
-                    all_text.append(drawing)
+            if not outside:
+                text_bb = drawing.GetBoundingBox()
+                if containing:
+                    if bounding_box.Contains(text_bb):
+                        all_text.append(drawing)
+                else:
+                    if bounding_box.Intersects(text_bb):
+                        all_text.append(drawing)
             else:
-                if bounding_box.Intersects(text_bb):
+                text_bb = drawing.GetBoundingBox()
+                if not bounding_box.Contains(text_bb):
                     all_text.append(drawing)
         return all_text
 
-    def get_drawings(self, bounding_box, containing):
+    def get_drawings(self, bounding_box, containing, outside=False):
         # get all drawings in source bounding box
         all_drawings = []
         for drawing in self.board.GetDrawings():
             if isinstance(drawing, pcbnew.PCB_TEXT):
                 # text items are handled separately
                 continue
-            dwg_bb = drawing.GetBoundingBox()
-            if containing:
-                if bounding_box.Contains(dwg_bb):
-                    all_drawings.append(drawing)
+            if not outside:
+                dwg_bb = drawing.GetBoundingBox()
+                if containing:
+                    if bounding_box.Contains(dwg_bb):
+                        all_drawings.append(drawing)
+                else:
+                    if bounding_box.Intersects(dwg_bb):
+                        all_drawings.append(drawing)
             else:
-                if bounding_box.Intersects(dwg_bb):
+                dwg_bb = drawing.GetBoundingBox()
+                if not bounding_box.Contains(dwg_bb):
                     all_drawings.append(drawing)
         return all_drawings
 
@@ -714,7 +760,7 @@ class Replicator:
                     dst_fp = list_of_possible_dst_footprints[index]
 
                 # skip locked footprints
-                if dst_fp.fp.IsLocked() is True and self.replicate_locked_items is False:
+                if dst_fp.fp.IsLocked() is True and self.replicate_locked_footprints is False:
                     continue
 
                 # get footprint to clone position
@@ -782,14 +828,14 @@ class Replicator:
                         + ")\nthan footprint for replication: " + dst_fp.ref + " (" + repr(
                             len(dst_fp_text_items)) + ")")
 
-                # replicate each text item
+                """# replicate each text item
                 src_text: pcbnew.FP_TEXT
                 dst_text: pcbnew.FP_TEXT
                 for src_text in src_fp_text_items:
                     txt_index = src_fp_text_items.index(src_text)
                     src_txt_pos = src_text.GetPosition()
                     src_txt_rel_pos = src_txt_pos - src_fp.fp.GetBoundingBox(False, False).Centre()
-                    src_txt_orientation = src_text.GetTextAngle()
+                    src_txt_orientation = src_text.GetTextAngleDegrees()
                     delta_angle = dst_fp_orientation - src_fp_orientation
 
                     dst_fp_pos = dst_fp.fp.GetBoundingBox(False, False).Centre()
@@ -804,13 +850,13 @@ class Replicator:
                         dst_txt_rel_pos_rot = rotate_around_center(dst_txt_rel_pos, delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        dst_text.SetTextAngle(-src_txt_orientation)
+                        dst_text.SetTextAngleDegrees(-src_txt_orientation)
                         dst_text.SetMirrored(not src_text.IsMirrored())
                     else:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        dst_text.SetTextAngle(src_txt_orientation)
+                        dst_text.SetTextAngleDegrees(src_txt_orientation)
                         dst_text.SetMirrored(src_text.IsMirrored())
 
                     # set text parameters
@@ -824,6 +870,7 @@ class Replicator:
                     dst_text.SetVertJustify(src_text.GetVertJustify())
                     dst_text.SetKeepUpright(src_text.IsKeepUpright())
                     dst_text.SetVisible(src_text.IsVisible())
+                """
 
     def replicate_tracks(self):
         logger.info("Replicating tracks")
@@ -851,8 +898,10 @@ class Replicator:
             nr_tracks = len(self.src_tracks)
             for track_index in range(nr_tracks):
                 track = self.src_tracks[track_index]
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_tracks)
                 self.update_progress(self.stage, progress, None)
+
                 # get from which net we are cloning
                 from_net_name = track.GetNetname()
                 # find to net
@@ -907,6 +956,7 @@ class Replicator:
             nr_zones = len(self.src_zones)
             for zone_index in range(nr_zones):
                 zone = self.src_zones[zone_index]
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_zones)
                 self.update_progress(self.stage, progress, None)
 
@@ -915,10 +965,17 @@ class Replicator:
                 # if zone is not on copper layer it does not matter on which net it is
                 if not zone.IsOnCopperLayer():
                     tup = [('', '')]
-                else:
-                    if from_net_name:
-                        tup = [item for item in net_pairs if item[0] == from_net_name]
-                    else:
+                else:                    
+                    if from_net_name:                     
+                        tup = [item for item in net_pairs if item[0] == from_net_name]                        
+                        # With proper layout I don't see why this should happen
+                        # TODO find a case when this happens in order to log it with proper message
+                        if len(tup) == 0:
+                            logger.info("When replicating zone from source net " + repr(from_net_name) +
+                                        " we did not find matching destination net")
+                            tup = [('', '')]
+                    # if source zone does not have a netname defined then destination zone also does not need it
+                    else:                        
                         tup = [('', '')]
 
                 # there is no net
@@ -975,6 +1032,7 @@ class Replicator:
             nr_text = len(self.src_text)
             for text_index in range(nr_text):
                 text = self.src_text[text_index]
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_text)
                 self.update_progress(self.stage, progress, None)
 
@@ -1031,7 +1089,7 @@ class Replicator:
 
                 self.board.Add(new_drawing)
 
-    def remove_zones_tracks(self, containing):
+    def remove_zones_tracks(self, intersecting):
         for index in range(len(self.dst_sheets)):
             sheet = self.dst_sheets[index]
             self.update_progress(self.stage, index / len(self.dst_sheets), None)
@@ -1049,56 +1107,254 @@ class Replicator:
             nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
 
             # remove items
-            tracks_for_removal = self.get_tracks(bounding_box, containing, nets_exclusively_on_sheet)
+            # TODO refactor out the old selection code
+            tracks_for_removal = self.get_tracks(bounding_box, not intersecting, nets_exclusively_on_sheet)
             for track in tracks_for_removal:
                 # minus the tracks in source bounding box
                 if track not in self.src_tracks:
                     self.board.RemoveNative(track)
-            for zone in self.get_zones(bounding_box, containing):
-                self.board.RemoveNative(zone)
-            for text_item in self.get_text_items(bounding_box, containing):
+            zones_for_removal = self.get_zones(bounding_box, not intersecting, nets_exclusively_on_sheet)
+            for zone in zones_for_removal:
+                # minus the zones in source bounding box
+                if zone not in self.src_zones:
+                    self.board.RemoveNative(zone)
+            for text_item in self.get_text_items(bounding_box, not intersecting):
                 self.board.RemoveNative(text_item)
-            for drawing in self.get_drawings(bounding_box, containing):
+            for drawing in self.get_drawings(bounding_box, not intersecting):
                 self.board.RemoveNative(drawing)
 
     def removing_duplicates(self):
         remove_duplicates(self.board)
 
-    def highlight_set_level(self, level, tracks, zones, text, drawings, containing):
+    def get_footprints_for_replication(self, level, bounding_box, settings):
+        src_fps = self.get_footprints_on_sheet(level)
+        fps_for_replication = []
+        for fp in src_fps:
+            if not fp.fp.IsLocked() or settings.rep_locked_drawings:
+                if settings.group_only:
+                    if fp.fp.GetParentGroup():
+                        if fp.fp.GetParentGroup().GetName() == self.src_anchor_fp_group:
+                            fps_for_replication.append(fp)
+                else:
+                    fps_for_replication.append(fp)
+        return fps_for_replication
+
+    def get_tracks_for_replication(self, level, bounding_box, settings):
+        tracks_for_replication = []
+        # get all tracks
+        all_tracks = self.board.GetTracks()
+
+        src_fps = self.get_footprints_on_sheet(level)
+        nets_on_sheet = self.get_nets_from_footprints(src_fps)
+        fp_not_on_sheet = self.get_footprints_not_on_sheet(level)
+        other_nets = self.get_nets_from_footprints(fp_not_on_sheet)
+        nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
+        common_nets_on_sheet = [net for net in nets_on_sheet if net not in nets_exclusively_on_sheet]
+
+        logger.info(f"Filtering list of tracks")
+        if settings.group_only:
+            # get all tracks that are in the group and on sheet nets (including common)
+            for t in all_tracks:
+                if not t.IsLocked() or settings.rep_locked_tracks:
+                    if t.GetParentGroup():
+                        logger.info(f"Track group: {t.GetParentGroup().GetName()}, src group:{self.src_anchor_fp_group}")
+                        if t.GetParentGroup().GetName() == self.src_anchor_fp_group:
+                            if t.GetNetname() in nets_on_sheet:
+                                tracks_for_replication.append(t)
+        else:
+            for t in all_tracks:
+                if not t.IsLocked() or settings.rep_locked_tracks:
+                    t_bb = t.GetBoundingBox()
+                    if (settings.intersecting and bounding_box.Intersects(t_bb)) or \
+                            (not settings.intersecting and bounding_box.Contains(t_bb)):
+                        # append those tracks which are inside bounding box and on sheet nets (including common)
+                        if t.GetNetname() in nets_on_sheet:
+                            tracks_for_replication.append(t)
+                    # outside tracks
+                    else:
+                        # append those which are on sheet exclusive nets
+                        if t.GetNetname() in nets_exclusively_on_sheet:
+                            tracks_for_replication.append(t)
+                        # those which are on other nets, append only if they are in group and if the user wants to
+                        else:
+                            if settings.group_items and t.GetNetname() in nets_on_sheet:
+                                if t.GetParentGroup():
+                                    if self.src_anchor_fp_group == t.GetParentGroup().GetName():
+                                        tracks_for_replication.append(t)
+        return tracks_for_replication
+
+    def get_zones_for_replication(self, level, bounding_box, settings):
+        zones_for_replication = []
+        # get all zones
+        all_zones = []
+        for zone_id in range(self.board.GetAreaCount()):
+            all_zones.append(self.board.GetArea(zone_id))
+
+        src_fps = self.get_footprints_on_sheet(level)
+        nets_on_sheet = self.get_nets_from_footprints(src_fps)
+        fp_not_on_sheet = self.get_footprints_not_on_sheet(level)
+        other_nets = self.get_nets_from_footprints(fp_not_on_sheet)
+        nets_exclusively_on_sheet = [net for net in nets_on_sheet if net not in other_nets]
+        common_nets_on_sheet = [net for net in nets_on_sheet if net not in nets_exclusively_on_sheet]
+
+        if settings.group_only:
+            # get all zones that are in the group and on sheet nets (including common)
+            for z in all_zones:
+                if not z.IsLocked() or settings.rep_locked_zones:
+                    if z.GetParentGroup():
+                        if z.GetParentGroup().GetName() == self.src_anchor_fp_group:
+                            if z.GetNetname() in nets_on_sheet:
+                                zones_for_replication.append(z)
+        else:
+            for z in all_zones:
+                if not z.IsLocked() or settings.rep_locked_zones:
+                    z_bb = z.GetBoundingBox()
+                    if (settings.intersecting and bounding_box.Intersects(z_bb)) or \
+                            (not settings.intersecting and bounding_box.Contains(z_bb)):
+                        # append those zones which are inside bounding box and on sheet nets (including common)
+                        if z.GetNetname() in nets_on_sheet or z.GetIsRuleArea():
+                            zones_for_replication.append(z)
+                    # outside zones
+                    else:
+                        # append those which are on sheet exclusive nets
+                        if z.GetNetname() in nets_exclusively_on_sheet:
+                            zones_for_replication.append(z)
+                        # those which are on other nets, append only if they are in group and if the user wants to
+                        else:
+                            if settings.group_items and (z.GetNetname() in nets_on_sheet or z.GetIsRuleArea()):
+                                if z.GetParentGroup():
+                                    if self.src_anchor_fp_group == z.GetParentGroup().GetName():
+                                        zones_for_replication.append(z)
+        return zones_for_replication
+
+    def get_text_for_replication(self, bounding_box, settings):
+        text_items_for_replication = []
+        """
+        # get all drawings on PCB
+        text_items = []
+        for t_i in self.board.GetDrawings():
+            if isinstance(t_i, pcbnew.PCB_TEXT):
+                # text items are handled separately
+                text_items.append(t_i)
+
+        # if group only
+        if settings.group_only:
+            # get all drawings, and select only those belonging to group
+            for t_i in text_items:
+                if t_i.GetParentGroup():
+                    if self.src_anchor_fp_group == t_i.GetParentGroup().GetName():
+                        if not t_i.IsLocked() or settings.rep_locked_text:
+                            text_items_for_replication.append(t_i)
+        else:
+            for t_i in text_items:
+                t_i_bb = t_i.GetBoundingBox()
+                if settings.intersecting:
+                    # append those drawings which are inside bounding box
+                    if bounding_box.Intersects(t_i_bb):
+                        if not t_i.IsLocked() or settings.rep_locked_text:
+                            text_items_for_replication.append(t_i)
+                    # append outside drawings append only if required
+                    else:
+                        if settings.group_items:
+                            if t_i.GetParentGroup():
+                                if self.src_anchor_fp_group == t_i.GetParentGroup().GetName():
+                                    if not t_i.IsLocked() or settings.rep_locked_drawings:
+                                        text_items_for_replication.append(t_i)
+                else:
+                    if bounding_box.Contains(t_i_bb):
+                        if not t_i.IsLocked() or settings.rep_locked_drawings:
+                            text_items_for_replication.append(t_i)
+                    else:
+                        if settings.group_items:
+                            if t_i.GetParentGroup():
+                                if self.src_anchor_fp_group == t_i.GetParentGroup().GetName():
+                                    if not t_i.IsLocked() or settings.rep_locked_drawings:
+                                        text_items_for_replication.append(t_i)
+        """
+        return text_items_for_replication
+
+    def get_drawings_for_replication(self, bounding_box, settings):
+        drawings_for_replication = []
+        # get all drawings on PCB
+        drawings = []
+        for d in self.board.GetDrawings():
+            if not isinstance(d, pcbnew.PCB_TEXT):
+                # text items are handled separately
+                drawings.append(d)
+
+        # if group only
+        if settings.group_only:
+            # get all drawings, and select only those belonging to group
+            for d in drawings:
+                if d.GetParentGroup():
+                    if self.src_anchor_fp_group == d.GetParentGroup().GetName():
+                        if not d.IsLocked() or settings.rep_locked_drawings:
+                            drawings_for_replication.append(d)
+        else:
+            for d in drawings:
+                d_bb = d.GetBoundingBox()
+                if settings.intersecting:
+                    # append those drawings which are inside bounding box
+                    if bounding_box.Intersects(d_bb):
+                        if not d.IsLocked() or settings.rep_locked_drawings:
+                            drawings_for_replication.append(d)
+                    # append outside drawings append only if required
+                    else:
+                        if settings.group_items:
+                            if d.GetParentGroup():
+                                if self.src_anchor_fp_group == d.GetParentGroup().GetName():
+                                    if not d.IsLocked() or settings.rep_locked_drawings:
+                                        drawings_for_replication.append(d)
+                else:
+                    if bounding_box.Contains(d_bb):
+                        if not d.IsLocked() or settings.rep_locked_drawings:
+                            drawings_for_replication.append(d)
+                    else:
+                        if settings.group_items:
+                            if d.GetParentGroup():
+                                if self.src_anchor_fp_group == d.GetParentGroup().GetName():
+                                    if not d.IsLocked() or settings.rep_locked_drawings:
+                                        drawings_for_replication.append(d)
+        return drawings_for_replication
+
+    def highlight_set_level(self, level, settings):
+        logger.info(f"Level selected: {repr(level)}")
         # find level bounding box
         src_fps = self.get_footprints_on_sheet(level)
         fps_bb = self.get_footprints_bounding_box(src_fps)
 
-        fps = []
         # set highlight on all the footprints
-        for fp in src_fps:
+        fps = self.get_footprints_for_replication(level, fps_bb, settings)
+        for fp in fps:
             self.fp_set_highlight(fp.fp)
-            fps.append(fp)
 
         # set highlight on other items
-        items = []
-        if tracks:
-            tracks = self.get_tracks(fps_bb, containing)
+        highlighted_items = []
+        if settings.rep_tracks:
+            tracks = self.get_tracks_for_replication(level, fps_bb, settings)
             for t in tracks:
                 t.SetBrightened()
-                items.append(t)
-        if zones:
-            zones = self.get_zones(fps_bb, containing)
-            for zone in zones:
-                zone.SetBrightened()
-                items.append(zone)
-        if text:
-            text_items = self.get_text_items(fps_bb, containing)
-            for t_i in text_items:
-                t_i.SetBrightened()
-                items.append(t_i)
-        if drawings:
-            dwgs = self.get_drawings(fps_bb, containing)
-            for dw in dwgs:
-                dw.SetBrightened()
-                items.append(dw)
+                highlighted_items.append(t)
 
-        return fps, items
+        if settings.rep_zones:
+            zones = self.get_zones_for_replication(level, fps_bb, settings)
+            for z in zones:
+                z.SetBrightened()
+                highlighted_items.append(z)
+
+        if settings.rep_text:
+            text_items = self.get_text_for_replication(fps_bb, settings)
+            for t in text_items:
+                t.SetBrightened()
+                highlighted_items.append(t)
+
+        if settings.rep_drawings:
+            drawings = self.get_drawings_for_replication(fps_bb, settings)
+            for d in drawings:
+                d.SetBrightened()
+                highlighted_items.append(d)
+
+        return fps, highlighted_items
 
     def highlight_clear_level(self, fps, items):
         # set highlight on all the footprints

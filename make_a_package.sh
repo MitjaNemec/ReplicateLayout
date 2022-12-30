@@ -6,13 +6,14 @@ inkscape replicate_layout_light.svg -w 24 -h 24 -o replicate_layout_light.png
 inkscape replicate_layout_light.svg -w 64 -h 64 -o replicate_layout.png
 
 # refresh the GUI design
-~/WxFormBuilder/bin/wxformbuilder -g replicate_layout_GUI.fbp
+wxformbuilder -g replicate_layout_GUI.fbp
+wxformbuilder -g error_dialog_GUI.fbp
 
 # grab version and parse it into metadata.json
 cp metadata_source.json metadata_package.json
 version=`cat version.txt`
 # remove all but the latest version in package metadata
-python parse_metadata_json.py
+python3 parse_metadata_json.py
 sed -i -e "s/VERSION/$version/g" metadata.json
 
 # cut the download, sha and size fields
@@ -30,6 +31,7 @@ cp action_replicate_layout.py plugins
 cp replicate_layout.py plugins
 cp remove_duplicates.py plugins
 cp replicate_layout_GUI.py plugins
+cp error_dialog_GUI.py plugins
 cp version.txt plugins
 mkdir resources
 cp replicate_layout.png resources/icon.png

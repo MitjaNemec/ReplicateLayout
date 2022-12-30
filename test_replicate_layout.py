@@ -7,6 +7,7 @@ import sys
 import os
 from compare_boards import compare_boards
 from replicate_layout import Replicator
+from replicate_layout import Settings
 
 
 def update_progress(stage, percentage, message=None):
@@ -19,9 +20,20 @@ def update_progress(stage, percentage, message=None):
 def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets, containing, remove, by_group):
     board = pcbnew.LoadBoard(in_filename)
     # get board information
-    replicator = Replicator(board, update_progress)
+    replicator = Replicator(board, src_anchor_fp_reference, update_progress)
     # get source footprint info
     src_anchor_fp = replicator.get_fp_by_ref(src_anchor_fp_reference)
+    # check if there are at least two sheets pointing to same hierarchical file that the source anchor footprint belongs to
+    count = 0
+    for filename in replicator.dict_of_sheets.values():
+        if filename[1] in src_anchor_fp.filename:
+            count = count + 1
+    if count < 2:
+        raise Exception
+    # check if source anchor footprint is on root leve
+    if len(src_anchor_fp.filename) == 0:
+        raise Exception
+
     # have the user select replication level
     levels = src_anchor_fp.filename
     # get the level index from user
@@ -44,17 +56,39 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     # get the list selection from user
     dst_sheets = [sheet_list[i] for i in sheets]
 
-    (fps, items) = replicator.highlight_set_level(src_anchor_fp.sheet_id[0:index + 1], True)
+    settings = Settings(rep_tracks=True, rep_zones=True, rep_text=True, rep_drawings=True,
+                        rep_locked_tracks=True, rep_locked_zones=True, rep_locked_text=True, rep_locked_drawings=True,
+                        intersecting=not containing,
+                        group_items=True,
+                        group_only=False, locked_fps=False,
+                        remove=False)
+
+    (fps, items) = replicator.highlight_set_level(src_anchor_fp.sheet_id[0:index + 1],
+                                                  settings)
     replicator.highlight_clear_level(fps, items)
 
     # now we are ready for replication
     replicator.replicate_layout(src_anchor_fp, src_anchor_fp.sheet_id[0:index + 1], dst_sheets,
-                                containing=containing, remove=remove, rm_duplicates=True,
-                                tracks=True, zones=True, text=True, drawings=True, rep_locked=True, by_group=by_group)
+                                settings, rm_duplicates=True)
     out_filename = test_filename.replace("ref", "temp")
     pcbnew.SaveBoard(out_filename, board)
 
-    return  compare_boards(out_filename, test_filename)
+    return compare_boards(out_filename, test_filename)
+
+
+@unittest.SkipTest
+class manotam_issue_issue(unittest.TestCase):
+    def setUp(self):
+        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "manotam_issue"))
+
+    def test_inner(self):
+        logger.info("Testing text placement")
+        input_filename = 'Test.kicad_pcb'
+        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
+        err = test_file(input_filename, test_filename, 'C1', level=0, sheets=(0, 1),
+                        containing=False, remove=True, by_group=True)
+        # self.assertEqual(err, 0, "inner levels failed")
+
 
 @unittest.SkipTest
 class TestText(unittest.TestCase):
@@ -70,7 +104,7 @@ class TestText(unittest.TestCase):
         # self.assertEqual(err, 0, "inner levels failed")
 
 
-class TestByRef(unittest.TestCase):
+class TestOfficial(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
 

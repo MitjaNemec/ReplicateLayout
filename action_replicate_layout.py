@@ -26,7 +26,18 @@ import logging
 import sys
 import time
 from .replicate_layout_GUI import ReplicateLayoutGUI
+from .error_dialog_GUI import ErrorDialogGUI
 from .replicate_layout import Replicator
+from .replicate_layout import Settings
+
+
+class ErrorDialog(ErrorDialogGUI):
+    def SetSizeHints(self, sz1, sz2):
+        # DO NOTHING
+        pass
+
+    def __init__(self, parent):
+        super(ErrorDialog, self).__init__(parent)
 
 
 class ReplicateLayoutDialog(ReplicateLayoutGUI):
@@ -47,14 +58,38 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         self.list_levels.Clear()
         self.list_levels.AppendItems(self.levels)
 
+        self.sheet_selection = None
+
         self.src_footprints = []
         self.hl_fps = []
         self.hl_items = []
+
+        # select the bottom most level
+        nr_levels = self.list_levels.GetCount()
+        self.list_levels.SetSelection(nr_levels - 1)
+        self.level_changed(None)
+
+    def __del__(self):
+        self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
 
     def level_changed(self, event):
         index = self.list_levels.GetSelection()
         list_sheets_choices = self.replicator.get_sheets_to_replicate(self.src_anchor_fp,
                                                                       self.src_anchor_fp.sheet_id[index])
+
+        # show/hide checkbox
+        if self.chkbox_group.GetValue():
+            self.chkbox_include_group_items.Disable()
+            self.chkbox_include_group_items.SetValue(False)
+            self.chkbox_intersecting.Disable()
+        else:
+            self.chkbox_include_group_items.Enable(True)
+            self.chkbox_intersecting.Enable(True)
+            if self.chkbox_intersecting.GetValue():
+                self.chkbox_include_group_items.Enable(True)
+            else:
+                self.chkbox_include_group_items.Disable()
+                self.chkbox_include_group_items.SetValue(False)
 
         # clear highlight on all footprints on selected level
         self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
@@ -74,41 +109,66 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
 
         sheets_for_list = ['/'.join(x[0]) + " (" + x[1] + ")" for x in zip(list_sheets_choices, ref_list)]
         # clear levels
+        self.sheet_selection = self.list_sheets.GetSelections()
+
         self.list_sheets.Clear()
         self.list_sheets.AppendItems(sheets_for_list)
 
-        # by default select all sheets
-        number_of_items = self.list_sheets.GetCount()
-        for i in range(number_of_items):
-            self.list_sheets.Select(i)
+        # if none is selected, select all
+        if len(self.sheet_selection) == 0:
+            number_of_items = self.list_sheets.GetCount()
+            for i in range(number_of_items):
+                self.list_sheets.Select(i)
+        else:
+            for n in range(len(sheets_for_list)):
+                if n in self.sheet_selection:
+                    self.list_sheets.Select(n)
+                else:
+                    self.list_sheets.Deselect(n)
+
+        # parse the settings
+        settings = Settings(rep_tracks=self.chkbox_tracks.GetValue(), rep_zones=self.chkbox_zones.GetValue(),
+                            rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
+                            rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
+                            rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
+                            intersecting=self.chkbox_intersecting.GetValue(), group_items=self.chkbox_include_group_items.GetValue(),
+                            group_only=self.chkbox_group.GetValue(), locked_fps=self.chkbox_locked.GetValue(),
+                            remove=self.chkbox_remove.GetValue())
 
         # highlight all footprints on selected level
         (self.hl_fps, self.hl_items) = self.replicator.highlight_set_level(self.src_anchor_fp.sheet_id[0:self.list_levels.GetSelection() + 1],
-                                                                           self.chkbox_tracks.GetValue(),
-                                                                           self.chkbox_zones.GetValue(),
-                                                                           self.chkbox_text.GetValue(),
-                                                                           self.chkbox_drawings.GetValue(),
-                                                                           not self.chkbox_intersecting.GetValue())
+                                                                           settings)
         pcbnew.Refresh()
 
-        event.Skip()
+        if event is not None:
+            event.Skip()
 
     def on_ok(self, event):
+        # clear highlight on all footprints on selected level
+        # so that duplicated tracks don't remain selected
+        self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
+        self.hl_fps = []
+        self.hl_items = []
+
         selected_items = self.list_sheets.GetSelections()
         selected_names = []
         for item in selected_items:
             selected_names.append(self.list_sheets.GetString(item))
 
         # grab checkboxes
-        replicate_containing_only = not self.chkbox_intersecting.GetValue()
         remove_existing_nets_zones = self.chkbox_remove.GetValue()
-        rep_tracks = self.chkbox_tracks.GetValue()
-        rep_zones = self.chkbox_zones.GetValue()
-        rep_text = self.chkbox_text.GetValue()
-        rep_drawings = self.chkbox_drawings.GetValue()
         remove_duplicates = self.chkbox_remove_duplicates.GetValue()
         rep_locked = self.chkbox_locked.GetValue()
         group_only = self.chkbox_group.GetValue()
+
+        # parse the settings
+        settings = Settings(rep_tracks=self.chkbox_tracks.GetValue(), rep_zones=self.chkbox_zones.GetValue(),
+                            rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
+                            rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
+                            rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
+                            intersecting=self.chkbox_intersecting.GetValue(), group_items=self.chkbox_include_group_items.GetValue(),
+                            group_only=self.chkbox_group.GetValue(), locked_fps=self.chkbox_locked.GetValue(),
+                            remove=self.chkbox_remove.GetValue())
 
         # failsafe sometimes on my machine wx does not generate a listbox event
         level = self.list_levels.GetSelection()
@@ -139,16 +199,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             self.replicator.update_progress = self.update_progress
             self.replicator.replicate_layout(self.src_anchor_fp, self.src_anchor_fp.sheet_id[0:level + 1],
                                              dst_sheets,
-                                             containing=replicate_containing_only,
-                                             remove=remove_existing_nets_zones,
-                                             tracks=rep_tracks,
-                                             zones=rep_zones,
-                                             text=rep_text,
-                                             drawings=rep_drawings,
-                                             rm_duplicates=remove_duplicates,
-                                             rep_locked=rep_locked,
-                                             by_group=group_only)
-
+                                             settings, remove_duplicates)
+                                             
             self.logger.info("Replication complete")
             # clear highlight on all footprints on selected level
             self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
@@ -185,13 +237,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             pcbnew.Refresh()
 
             self.logger.exception("Fatal error when running Replicate layout plugin")
-            caption = 'Replicate Layout'
-            message = "Fatal error when running replicator.\n" \
-                      + "You can raise an issue on GiHub page.\n" \
-                      + "Please attach the replicate_layout.log which you should find in the project folder."
-            dlg = wx.MessageDialog(self, message, caption, wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
+            e_dlg = ErrorDialog(self)
+            e_dlg.ShowModal()
+            e_dlg.Destroy()
             logging.shutdown()
             self.progress_dlg.Destroy()
             event.Skip()
@@ -297,15 +345,20 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         # this is the source anchor footprint reference
         src_anchor_fp_reference = selected_footprints[0]
 
+        # search for the Replicate.Layout user layer where replication rooms can be defined
+
+        if 'Replicate.Layout' in [board.GetLayerName(x) for x in board.GetEnabledLayers().Users()]:
+            pass
+
         # prepare the replicator
         logger.info("Preparing replicator with " + src_anchor_fp_reference + " as a reference")
 
         # TODO return if replication is not possible at all
         try:
-            replicator = Replicator(board)
+            replicator = Replicator(board, src_anchor_fp_reference)
         except LookupError as exception:
-            caption = 'Replicate Layout'
             logger.exception("Fatal error when making an instance of replicator")
+            caption = 'Replicate Layout'
             message = str(exception)
             dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_ERROR)
             dlg.ShowModal()
@@ -314,17 +367,37 @@ class ReplicateLayout(pcbnew.ActionPlugin):
             return
         except Exception:
             logger.exception("Fatal error when making an instance of replicator")
-            caption = 'Replicate Layout'
-            message = "Fatal error when making an instance of replicator.\n" \
-                      + "You can raise an issue on GiHub page.\n" \
-                      + "Please attach the replicate_layout.log which you should find in the project folder."
-            dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
+            e_dlg = ErrorDialog(self.frame)
+            e_dlg.ShowModal()
+            e_dlg.Destroy()
             logging.shutdown()
             return
 
         src_anchor_fp = replicator.get_fp_by_ref(src_anchor_fp_reference)
+
+        # check if source anchor footprint is on root level
+        if len(src_anchor_fp.filename) == 0:
+            caption = 'Replicate layout'
+            message = "Selected anchor footprint is on the root schematic sheet. Replication is not possible."
+            dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_INFORMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+
+        # check if there are at least two sheets pointing to same hierarchical file that the source anchor footprint belongs to
+        count = 0        
+        for filename in replicator.dict_of_sheets.values():           
+            # filename contain sheet name and sheet filename, check only sheet filename.
+            if filename[1] in src_anchor_fp.filename:
+                count = count + 1
+        if count < 2:
+            caption = 'Replicate layout'
+            message = "Selected anchor footprint is on the schematic sheet which does not have multiple instances." \
+                      " Replication is not possible."
+            dlg = wx.MessageDialog(self.frame, message, caption, wx.OK | wx.ICON_INFORMATION)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
 
         logger.info(f'source anchor footprint is {repr(src_anchor_fp.ref)}\n'
                     f'Located on: {repr(src_anchor_fp.sheet_id)}\n'
@@ -346,18 +419,23 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         # show dialog
         logger.info("Showing dialog")
-        dlg = ReplicateLayoutDialog(self.frame, replicator, src_anchor_fp_reference, logger)
-        dlg.CenterOnParent()
-
-        # find position of right toolbar
-        toolbar_pos = self.frame.FindWindowById(pcbnew.ID_V_TOOLBAR).GetScreenPosition()
-        logger.info("Toolbar position: " + repr(toolbar_pos))
-
-        # find site of dialog
-        size = dlg.GetSize()
-        # place the dialog by the right toolbar
-        dialog_position = wx.Point(toolbar_pos[0] - size[0], toolbar_pos[1])
-        logger.info("Dialog position: " + repr(dialog_position))
-        dlg.SetPosition(dialog_position)
-
-        dlg.Show()
+        try:
+            dlg = ReplicateLayoutDialog(self.frame, replicator, src_anchor_fp_reference, logger)
+            dlg.CenterOnParent()
+            # find position of right toolbar
+            toolbar_pos = self.frame.FindWindowById(pcbnew.ID_V_TOOLBAR).GetScreenPosition()
+            logger.info("Toolbar position: " + repr(toolbar_pos))
+            # find site of dialog
+            size = dlg.GetSize()
+            # place the dialog by the right toolbar
+            dialog_position = wx.Point(toolbar_pos[0] - size[0], toolbar_pos[1])
+            logger.info("Dialog position: " + repr(dialog_position))
+            dlg.SetPosition(dialog_position)
+            dlg.Show()
+        except Exception:
+            logger.exception("Fatal error when making an instance of replicator")
+            e_dlg = ErrorDialog(self.frame)
+            e_dlg.ShowModal()
+            e_dlg.Destroy()
+            logging.shutdown()
+            return
