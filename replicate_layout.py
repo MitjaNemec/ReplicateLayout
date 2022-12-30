@@ -256,7 +256,7 @@ class Replicator:
         if settings.rep_text:
             self.stage = 7
             self.update_progress(self.stage, 0.0, "Replicating text")
-            # self.replicate_text()
+            self.replicate_text()
         if settings.rep_drawings:
             self.stage = 8
             self.update_progress(self.stage, 0.0, "Replicating drawings")
@@ -828,7 +828,7 @@ class Replicator:
                         + ")\nthan footprint for replication: " + dst_fp.ref + " (" + repr(
                             len(dst_fp_text_items)) + ")")
 
-                """# replicate each text item
+                # replicate each text item
                 src_text: pcbnew.FP_TEXT
                 dst_text: pcbnew.FP_TEXT
                 for src_text in src_fp_text_items:
@@ -870,7 +870,6 @@ class Replicator:
                     dst_text.SetVertJustify(src_text.GetVertJustify())
                     dst_text.SetKeepUpright(src_text.IsKeepUpright())
                     dst_text.SetVisible(src_text.IsVisible())
-                """
 
     def replicate_tracks(self):
         logger.info("Replicating tracks")
@@ -1229,7 +1228,6 @@ class Replicator:
 
     def get_text_for_replication(self, bounding_box, settings):
         text_items_for_replication = []
-        """
         # get all drawings on PCB
         text_items = []
         for t_i in self.board.GetDrawings():
@@ -1270,7 +1268,6 @@ class Replicator:
                                 if self.src_anchor_fp_group == t_i.GetParentGroup().GetName():
                                     if not t_i.IsLocked() or settings.rep_locked_drawings:
                                         text_items_for_replication.append(t_i)
-        """
         return text_items_for_replication
 
     def get_drawings_for_replication(self, bounding_box, settings):
