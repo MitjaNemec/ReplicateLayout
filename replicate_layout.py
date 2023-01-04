@@ -189,12 +189,13 @@ class Replicator:
                     sheet_id = ""
                     for j in range(i,i+10):
                         line_con = contents[j]
+                        print(line_con)
                         if "(uuid " in contents[j]:
                             sheet_id = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
-                        if "(property \"Sheet name\"" in contents[j]:
-                            sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
-                        if "(property \"Sheet file\"" in contents[j]:
-                            sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                        if "(property \"Sheetname\"" in contents[j]:
+                            sheetname = contents[j].replace("(property \"Sheetname\"", '').split("(")[0].replace("\"", "").strip()
+                        if "(property \"Sheetfile\"" in contents[j]:
+                            sheetfile = contents[j].replace("(property \"Sheetfile\"", '').split("(")[0].replace("\"", "").strip()
                     # here I should find all sheet data
                     dict_of_sheets[sheet_id] = [sheetname, sheetfile]
                     # open a newfound file and look for nested sheets
