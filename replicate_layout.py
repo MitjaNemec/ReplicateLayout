@@ -176,27 +176,29 @@ class Replicator:
         # TODO check if there is any other footprint fit same ID as anchor footprint
 
     def parse_schematic_files(self, filename, dict_of_sheets):
-        with open(filename) as f:
-            contents = f.read().split("\n")
-        # find (sheet (at and then look in next few lines for new schematics file
-        for i in range(len(contents)):
-            line = contents[i]
-            if "(sheet (at" in line:
-                sheetname = ""
-                sheetfile = ""
-                sheet_id = ""
-                for j in range(i,i+10):
-                    line_con = contents[j]
-                    if "(uuid " in contents[j]:
-                        sheet_id = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
-                    if "(property \"Sheet name\"" in contents[j]:
-                        sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
-                    if "(property \"Sheet file\"" in contents[j]:
-                        sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
-                # here I should find all sheet data
-                dict_of_sheets[sheet_id] = [sheetname, sheetfile]
-                # open a newfound file and look for nested sheets
-                self.parse_schematic_files(sheetfile, dict_of_sheets)
+        print(filename)
+        if filename != "":
+            with open(filename,"r",encoding="utf-8") as f:
+                contents = f.read().split("\n")
+            # find (sheet (at and then look in next few lines for new schematics file
+            for i in range(len(contents)):
+                line = contents[i]
+                if "(sheet (at" in line:
+                    sheetname = ""
+                    sheetfile = ""
+                    sheet_id = ""
+                    for j in range(i,i+10):
+                        line_con = contents[j]
+                        if "(uuid " in contents[j]:
+                            sheet_id = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
+                        if "(property \"Sheet name\"" in contents[j]:
+                            sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
+                        if "(property \"Sheet file\"" in contents[j]:
+                            sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                    # here I should find all sheet data
+                    dict_of_sheets[sheet_id] = [sheetname, sheetfile]
+                    # open a newfound file and look for nested sheets
+                    self.parse_schematic_files(sheetfile, dict_of_sheets)
         return
 
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
