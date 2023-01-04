@@ -479,9 +479,9 @@ class Replicator:
             left = min(left, fp_box.GetLeft())
             right = max(right, fp_box.GetRight())
 
-        position = pcbnew.wxPoint(left, top)
-        size = pcbnew.wxSize(right - left, bottom - top)
-        bounding_box = pcbnew.EDA_RECT(position, size)
+        position = pcbnew.VECTOR2I(left, top)
+        size = pcbnew.VECTOR2I(right - left, bottom - top)
+        bounding_box = pcbnew.BOX2I(position, size)
         return bounding_box
 
     def get_tracks(self, bounding_box, containing, exclusive_nets=None):
