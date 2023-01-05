@@ -176,7 +176,7 @@ class Replicator:
         # TODO check if there is any other footprint fit same ID as anchor footprint
 
     def parse_schematic_files(self, filename, dict_of_sheets):
-        with open(filename) as f:
+        with open(filename, encoding='utf-8') as f:
             contents = f.read().split("\n")
         # find (sheet (at and then look in next few lines for new schematics file
         for i in range(len(contents)):
@@ -188,7 +188,8 @@ class Replicator:
                 for j in range(i,i+10):
                     line_con = contents[j]
                     if "(uuid " in contents[j]:
-                        sheet_id = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
+                        path = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
+                        sheet_id = path.replace('00000000-0000-0000-0000-0000', '')
                     if "(property \"Sheet name\"" in contents[j]:
                         sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
                     if "(property \"Sheet file\"" in contents[j]:
