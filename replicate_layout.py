@@ -783,7 +783,7 @@ class Replicator:
                 new_pos = [int(x) for x in new_pos]
                 # place current footprint - only if current footprint is not also the anchor
                 if dst_fp.ref != dst_anchor_fp.ref:
-                    dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_pos))
+                    dst_fp.fp.SetPosition(pcbnew.VECTOR2I(*new_pos))
 
                     if dst_fp.fp.IsFlipped() != src_fp_flipped:
                         dst_fp.fp.Flip(dst_fp.fp.GetPosition(), False)
@@ -806,7 +806,7 @@ class Replicator:
                         delta_angle = dst_anchor_fp_angle + src_anchor_fp_angle
                         dst_fp_rel_pos_rot = rotate_around_center([-src_fp_rel_pos[0], src_fp_rel_pos[1]],
                                                                   -delta_angle)
-                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.wxPoint(dst_fp_rel_pos_rot[0],
+                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.VECTOR2I(dst_fp_rel_pos_rot[0],
                                                                                  dst_fp_rel_pos_rot[1])
                         # also need to change the angle
                         dst_fp.fp.SetPosition(dst_fp_rel_pos)
@@ -851,13 +851,13 @@ class Replicator:
                         dst_txt_rel_pos = [-src_txt_rel_pos[0], src_txt_rel_pos[1]]
                         delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
                         dst_txt_rel_pos_rot = rotate_around_center(dst_txt_rel_pos, delta_angle)
-                        dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1])
+                        dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(pcbnew.wxPoint(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1]))
                         dst_text.SetPosition(dst_txt_pos)
                         dst_text.SetTextAngle(-src_txt_orientation)
                         dst_text.SetMirrored(not src_text.IsMirrored())
                     else:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -delta_angle)
-                        dst_txt_pos = dst_fp_pos + pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
+                        dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(pcbnew.wxPoint(dst_txt_rel_pos[0], dst_txt_rel_pos[1]))
                         dst_text.SetPosition(dst_txt_pos)
                         dst_text.SetTextAngle(src_txt_orientation)
                         dst_text.SetMirrored(src_text.IsMirrored())
