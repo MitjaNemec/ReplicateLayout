@@ -1,4 +1,4 @@
-/replicate_layout_GUI.py
+replicate_layout_GUI.py
 /replicate_layout_test_project/replicate_layout_test_project-backups
 *.jpg
 .directory
@@ -45,3 +45,4 @@ replicate_layout_fp_text
 /InstantMuffin_test_issue_23
 /KiCad_2ndTestProject_v1
 /krivospitsky_issue
+error_dialog_GUI.py

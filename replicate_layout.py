@@ -185,15 +185,26 @@ class Replicator:
                 sheetname = ""
                 sheetfile = ""
                 sheet_id = ""
+                sn_found = False
+                sf_found = False
                 for j in range(i,i+10):
                     line_con = contents[j]
                     if "(uuid " in contents[j]:
                         path = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
                         sheet_id = path.replace('00000000-0000-0000-0000-0000', '')
-                    if "(property \"Sheet name\"" in contents[j]:
+                    if "(property \"Sheet name\"" in contents[j] or "(property \"Sheetname\"" in contents[j]:
                         sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
-                    if "(property \"Sheet file\"" in contents[j]:
+                        sn_found = True
+                    if "(property \"Sheet file\"" in contents[j] or "(property \"Sheetfile\"" in contents[j]:
                         sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                        sf_found = True
+                # properly handle property not found
+                if not sn_found or not sf_found:
+                    logger.info(f'Did not found sheetfile and/or sheetname properties in the schematic file '
+                                f'in {filename} line:{str(i)}')
+                    raise LookupError(f'Did not found sheetfile and/or sheetname properties in the schematic file '
+                                f'in {filename} line:{str(i)}. Unsupported schematics file format')
+
                 # here I should find all sheet data
                 dict_of_sheets[sheet_id] = [sheetname, sheetfile]
                 # open a newfound file and look for nested sheets
@@ -650,6 +661,7 @@ class Replicator:
             elif matches == 0:
                 raise LookupError("Could not find at least one matching footprint for: " + fp[0].GetReference() +
                                   ".\nPlease make sure that schematics and layout are in sync.")
+        logger.info("Footprint pairs for sheet " + repr(sheet) + " :" + repr(fp_pairs_by_reference))
 
         # prepare the list of pad pairs
         pad_pairs = []
@@ -703,6 +715,7 @@ class Replicator:
 
         # remove duplicates
         net_pairs_clean = list(set(net_pairs))
+        logger.info("Net pairs for sheet " + repr(sheet) + " :" + repr(net_pairs_clean))
 
         return net_pairs_clean, net_dict
 
@@ -968,8 +981,10 @@ class Replicator:
                 if not zone.IsOnCopperLayer():
                     tup = [('', '')]
                 else:                    
-                    if from_net_name:                     
-                        tup = [item for item in net_pairs if item[0] == from_net_name]                        
+                    if from_net_name:
+                        logger.info("Src zone on new: " + repr(from_net_name))
+                        tup = [item for item in net_pairs if item[0] == from_net_name]
+                        logger.info("Dst zone on new: " + repr(tup[0][1]))
                         # With proper layout I don't see why this should happen
                         # TODO find a case when this happens in order to log it with proper message
                         if len(tup) == 0:

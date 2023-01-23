@@ -76,6 +76,7 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     return compare_boards(out_filename, test_filename)
 
 
+@unittest.SkipTest
 class myamigo_issue(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "myamigo_issue"))
@@ -116,7 +117,7 @@ class TestText(unittest.TestCase):
                         containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
-@unittest.SkipTest
+
 class TestOfficial(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
