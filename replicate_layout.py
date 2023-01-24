@@ -173,7 +173,7 @@ class Replicator:
             self.src_anchor_fp_group = self.src_anchor_fp.fp.GetParentGroup().GetName()
         else:
             self.src_anchor_fp_group = None
-        # TODO check if there is any other footprint fit same ID as anchor footprint
+        # TODO check if there is any other footprint with same ID as anchor footprint
 
     def parse_schematic_files(self, filename, dict_of_sheets):
         with open(filename, encoding='utf-8') as f:
@@ -792,9 +792,10 @@ class Replicator:
 
                 # convert to tuple of integers
                 new_pos = [int(x) for x in new_pos]
+                dst_fp_pos = pcbnew.wxPoint(*new_pos)
                 # place current footprint - only if current footprint is not also the anchor
                 if dst_fp.ref != dst_anchor_fp.ref:
-                    dst_fp.fp.SetPosition(pcbnew.wxPoint(*new_pos))
+                    dst_fp.fp.SetPosition(dst_fp_pos)
 
                     if dst_fp.fp.IsFlipped() != src_fp_flipped:
                         dst_fp.fp.Flip(dst_fp.fp.GetPosition(), False)
@@ -817,12 +818,12 @@ class Replicator:
                         delta_angle = dst_anchor_fp_angle + src_anchor_fp_angle
                         dst_fp_rel_pos_rot = rotate_around_center([-src_fp_rel_pos[0], src_fp_rel_pos[1]],
                                                                   -delta_angle)
-                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.wxPoint(dst_fp_rel_pos_rot[0],
-                                                                                 dst_fp_rel_pos_rot[1])
+                        dst_fp_pos = dst_anchor_fp_position + pcbnew.wxPoint(dst_fp_rel_pos_rot[0],
+                                                                             dst_fp_rel_pos_rot[1])
                         # also need to change the angle
-                        dst_fp.fp.SetPosition(dst_fp_rel_pos)
+                        dst_fp.fp.SetPosition(dst_fp_pos)
                         src_fp_flipped_orientation = flipped_angle(src_fp_orientation)
-                        flipped_delta = flipped_angle(src_anchor_fp_angle)-dst_anchor_fp_angle
+                        flipped_delta = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
                         new_orientation = src_fp_flipped_orientation - flipped_delta
                         dst_fp.fp.SetOrientationDegrees(new_orientation)
 
@@ -848,11 +849,9 @@ class Replicator:
                 for src_text in src_fp_text_items:
                     txt_index = src_fp_text_items.index(src_text)
                     src_txt_pos = src_text.GetPosition()
-                    src_txt_rel_pos = src_txt_pos - src_fp.fp.GetBoundingBox(False, False).Centre()
+                    src_txt_rel_pos = src_txt_pos - src_fp_pos
                     src_txt_orientation = src_text.GetTextAngle()
                     delta_angle = dst_fp_orientation - src_fp_orientation
-
-                    dst_fp_pos = dst_fp.fp.GetBoundingBox(False, False).Centre()
                     dst_text = dst_fp_text_items[txt_index]
 
                     dst_text.SetLayer(src_text.GetLayer())

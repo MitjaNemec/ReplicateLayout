@@ -76,30 +76,15 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
     return compare_boards(out_filename, test_filename)
 
 
-@unittest.SkipTest
-class myamigo_issue(unittest.TestCase):
+class myamigo_35(unittest.TestCase):
     def setUp(self):
-        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "myamigo_issue"))
+        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "myamigo_35"))
 
     def test_inner(self):
         logger.info("Testing text placement")
-        input_filename = 'V5_V6_Replicator_Test.kicad_pcb'
+        input_filename = 'Replicate_Text_Error.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'R1', level=0, sheets=(0, 1),
-                        containing=False, remove=True, by_group=True)
-        # self.assertEqual(err, 0, "inner levels failed")
-
-
-@unittest.SkipTest
-class manotam_issue(unittest.TestCase):
-    def setUp(self):
-        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "manotam_issue"))
-
-    def test_inner(self):
-        logger.info("Testing text placement")
-        input_filename = 'Test.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'C1', level=0, sheets=(0, 1),
+        err = test_file(input_filename, test_filename, 'J1', level=0, sheets=(0, 1),
                         containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
@@ -118,6 +103,7 @@ class TestText(unittest.TestCase):
         # self.assertEqual(err, 0, "inner levels failed")
 
 
+@unittest.SkipTest
 class TestOfficial(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))

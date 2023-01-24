@@ -236,7 +236,7 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             self.hl_items = []
             pcbnew.Refresh()
 
-            self.logger.exception("Fatal error when running Replicate layoue plugin")
+            self.logger.exception("Fatal error when running Replicate layout plugin")
             e_dlg = ErrorDialog(self)
             e_dlg.ShowModal()
             e_dlg.Destroy()
