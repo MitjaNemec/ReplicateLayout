@@ -668,6 +668,7 @@ class Replicator:
         for x in range(len(fp_pairs)):
             pad_pairs.append([])
 
+        # create a nested list of pairs for each footprint
         for pair in fp_pairs:
             index = fp_pairs.index(pair)
             # get all footprint pads
@@ -683,6 +684,10 @@ class Replicator:
             # sort by pad names
             s_pads.sort(key=lambda tup: tup[0])
             d_pads.sort(key=lambda tup: tup[0])
+            logger.info("Sorted Pads for source footprint " + repr(pair[0].GetReference()) + " :" + repr(
+                [x[0] for x in s_pads]))
+            logger.info("Sorted Pads for destinations footprint " + repr(pair[1].GetReference()) + " :" + repr(
+                [x[0] for x in d_pads]))
             # extract pads and append them to pad pairs list
             pad_pairs[index].append([x[1] for x in s_pads])
             pad_pairs[index].append([x[1] for x in d_pads])
