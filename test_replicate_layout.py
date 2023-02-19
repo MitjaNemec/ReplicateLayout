@@ -72,20 +72,26 @@ def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets
                                 settings, rm_duplicates=True)
     out_filename = test_filename.replace("ref", "temp")
     pcbnew.SaveBoard(out_filename, board)
+    # test for connectivity isuues
+    if replicator.connectivity_issues:
+        report_string = ""
+        for item in replicator.connectivity_issues:
+            report_string = report_string + f"Footprint {item[0]}, pad {item[1]}\n"
+        print(f"Make sure that you check the connectivity around:\n" + report_string)
 
     return compare_boards(out_filename, test_filename)
 
 
 @unittest.SkipTest
-class manotam_issue_issue(unittest.TestCase):
+class connectivity(unittest.TestCase):
     def setUp(self):
-        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "manotam_issue"))
+        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "connectivity_test"))
 
     def test_inner(self):
         logger.info("Testing text placement")
-        input_filename = 'Test.kicad_pcb'
+        input_filename = 'connectivity_test.kicad_pcb'
         test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'C1', level=0, sheets=(0, 1),
+        err = test_file(input_filename, test_filename, 'U301', level=1, sheets=(2,),
                         containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 

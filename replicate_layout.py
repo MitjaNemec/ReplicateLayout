@@ -20,6 +20,7 @@
 #
 import pcbnew
 from collections import namedtuple
+from collections import defaultdict
 import os
 import logging
 import itertools
@@ -43,9 +44,9 @@ Settings = namedtuple('Settings', ['rep_tracks', 'rep_zones', 'rep_text', 'rep_d
 def rotate_around_center(coordinates, angle):
     """ rotate coordinates for a defined angle in degrees around coordinate center"""
     new_x = coordinates[0] * math.cos(2 * math.pi * angle / 360) \
-        - coordinates[1] * math.sin(2 * math.pi * angle / 360)
+            - coordinates[1] * math.sin(2 * math.pi * angle / 360)
     new_y = coordinates[0] * math.sin(2 * math.pi * angle / 360) \
-        + coordinates[1] * math.cos(2 * math.pi * angle / 360)
+            + coordinates[1] * math.cos(2 * math.pi * angle / 360)
     return int(new_x), int(new_y)
 
 
@@ -101,6 +102,8 @@ class Replicator:
         self.src_zones = []
         self.src_text = []
         self.src_drawings = []
+
+        self.connectivity_issues = set()
 
         self.pcb_filename = os.path.abspath(board.GetFileName())
         self.sch_filename = self.pcb_filename.replace(".kicad_pcb", ".kicad_sch")
@@ -175,6 +178,10 @@ class Replicator:
             self.src_anchor_fp_group = None
         # TODO check if there is any other footprint with same ID as anchor footprint
 
+        # get net-dict
+        # you get the netcode by self.netdict.GetNetItem("netname")
+        self.netdict = self.board.GetNetInfo()
+
     def parse_schematic_files(self, filename, dict_of_sheets):
         with open(filename, encoding='utf-8') as f:
             contents = f.read().split("\n")
@@ -185,14 +192,26 @@ class Replicator:
                 sheetname = ""
                 sheetfile = ""
                 sheet_id = ""
+                sn_found = False
+                sf_found = False
                 for j in range(i,i+10):
                     line_con = contents[j]
                     if "(uuid " in contents[j]:
-                        sheet_id = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
-                    if "(property \"Sheet name\"" in contents[j]:
+                        path = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
+                        sheet_id = path.replace('00000000-0000-0000-0000-0000', '')
+                    if "(property \"Sheet name\"" in contents[j] or "(property \"Sheetname\"" in contents[j]:
                         sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
-                    if "(property \"Sheet file\"" in contents[j]:
+                        sn_found = True
+                    if "(property \"Sheet file\"" in contents[j] or "(property \"Sheetfile\"" in contents[j]:
                         sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                        sf_found = True
+                # properly handle property not found
+                if not sn_found or not sf_found:
+                    logger.info(f'Did not found sheetfile and/or sheetname properties in the schematic file '
+                                f'in {filename} line:{str(i)}')
+                    raise LookupError(f'Did not found sheetfile and/or sheetname properties in the schematic file '
+                                f'in {filename} line:{str(i)}. Unsupported schematics file format')
+
                 # here I should find all sheet data
                 dict_of_sheets[sheet_id] = [sheetname, sheetfile]
                 # open a newfound file and look for nested sheets
@@ -610,56 +629,38 @@ class Replicator:
         sheet_footprints = self.get_footprints_on_sheet(sheet)
 
         # find all net pairs via same footprint pads,
-        net_pairs = []
-        net_dict = {}
-        # construct footprint pairs
-        fp_matches = []
-        for s_fp in self.src_footprints:
-            fp_matches.append([s_fp.fp, s_fp.fp_id, s_fp.sheet_id])
-
+        # first find footprint matches
+        fp_matches = defaultdict(list)
         for d_fp in sheet_footprints:
-            for fp in fp_matches:
-                if fp[1] == d_fp.fp_id:
-                    index = fp_matches.index(fp)
-                    fp_matches[index].append(d_fp.fp)
-                    fp_matches[index].append(d_fp.fp_id)
-                    fp_matches[index].append(d_fp.sheet_id)
-        # find closest match
-        fp_pairs = []
-        fp_pairs_by_reference = []
-        for index in range(len(fp_matches)):
-            fp = fp_matches[index]
-            # get number of matches
-            matches = (len(fp) - 3) // 3
+            for s_fp in self.src_footprints:
+                if d_fp.fp_id == s_fp.fp_id:
+                    fp_matches[s_fp.ref].append((s_fp, d_fp))
+
+        # from matching footprints find closest match if needed
+        fp_pairs = defaultdict(list)
+        for key, value in fp_matches.items():
+            matches = len(value)
+            if matches == 0:
+                raise LookupError("Could not find at least one matching footprint for: " + key +
+                                  ".\nPlease make sure that schematics and layout are in sync.")
+            if matches == 1:
+                fp_pairs[key] = value[0]
             # if more than one match, get the most likely one
             # this is when replicating a sheet which consist of two or more identical subsheets (multiple hierachy)
-            # todo might want to find common code with code in "get_sheet_anchor_footprint"
+            # the closest match is the one where most of the sheet_id matches
             if matches > 1:
                 match_len = []
-                for index in range(0, matches):
-                    match_len.append(len(set(fp[2]) & set(fp[2 + 3 * (index + 1)])))
+                for match in value:
+                    match_len.append(len(set(match[0].sheet_id) & set(match[1].sheet_id)))
                 index = match_len.index(max(match_len))
-                fp_pairs.append((fp[0], fp[3 * (index + 1)]))
-                fp_pairs_by_reference.append((fp[0].GetReference(), fp[3 * (index + 1)].GetReference()))
-            # if only one match
-            elif matches == 1:
-                fp_pairs.append((fp[0], fp[3]))
-                fp_pairs_by_reference.append((fp[0].GetReference(), fp[3].GetReference()))
-            # can not find at least one matching footprint
-            elif matches == 0:
-                raise LookupError("Could not find at least one matching footprint for: " + fp[0].GetReference() +
-                                  ".\nPlease make sure that schematics and layout are in sync.")
+                fp_pairs[key] = value[index]
 
-        # prepare the list of pad pairs
-        pad_pairs = []
-        for x in range(len(fp_pairs)):
-            pad_pairs.append([])
-
-        for pair in fp_pairs:
-            index = fp_pairs.index(pair)
-            # get all footprint pads
-            src_fp_pads = pair[0].Pads()
-            dst_fp_pads = pair[1].Pads()
+        # For each pad pair get the net pair, and check if it makes sense
+        connectivity_issues = []
+        net_pairs = []
+        for fp_ref, fp_pair in fp_pairs.items():
+            src_fp_pads = fp_pair[0].fp.Pads()
+            dst_fp_pads = fp_pair[1].fp.Pads()
             # create a list of pads names and pads
             s_pads = []
             d_pads = []
@@ -670,40 +671,47 @@ class Replicator:
             # sort by pad names
             s_pads.sort(key=lambda tup: tup[0])
             d_pads.sort(key=lambda tup: tup[0])
-            # extract pads and append them to pad pairs list
-            pad_pairs[index].append([x[1] for x in s_pads])
-            pad_pairs[index].append([x[1] for x in d_pads])
-
-        for pair in fp_pairs:
-            index = fp_pairs.index(pair)
-            # get their pads
-            src_fp_pads = pad_pairs[index][0]
-            dst_fp_pads = pad_pairs[index][1]
-            # I am going to assume pads are in the same order
-            s_nets = []
-            d_nets = []
-            # get netlists for each pad
-            for p_pad in src_fp_pads:
-                pad_name = p_pad.GetName()
-                s_nets.append((pad_name, p_pad.GetNetname()))
-            for s_pad in dst_fp_pads:
-                pad_name = s_pad.GetName()
-                d_nets.append((pad_name, s_pad.GetNetname()))
-                net_dict[s_pad.GetNetname()] = s_pad.GetNet()
-            # sort both lists by pad name
-            # so that they have the same order - needed in some cases
-            # as the iterator through the pads list does not return pads always in the proper order
-            s_nets.sort(key=lambda tup: tup[0])
-            d_nets.sort(key=lambda tup: tup[0])
-            # build list of net tuples
-            for net in s_nets:
-                index = get_index_of_tuple(s_nets, 1, net[1])
-                net_pairs.append((s_nets[index][1], d_nets[index][1]))
+            # add to dict
+            fp_net_pairs = dict(zip([x[0] for x in d_pads] ,list(zip([x[1].GetNetname() for x in s_pads], [x[1].GetNetname() for x in d_pads]))))
+            # go through all net pairs
+            for pad_nr, net_pair in fp_net_pairs.items():
+                # if net names match
+                if net_pair[0] == net_pair[1]:
+                    net_pairs.append(net_pair)
+                    continue
+                # get netname depth
+                src_net_path = net_pair[0].split("/")
+                dst_net_path = net_pair[1].split("/")
+                src_net_depth = len(src_net_path)
+                dst_net_depth = len(dst_net_path)
+                net_delta_depth = src_net_depth-dst_net_depth
+                src_fp_depth = len(fp_pair[0].sheet_id)
+                dst_fp_depth = len(fp_pair[1].sheet_id)
+                fp_delta_depth = src_fp_depth - dst_fp_depth
+                # if both nets are local, they should match
+                if (src_net_depth == 1) and (dst_net_depth == 1):
+                    net_pairs.append(net_pair)
+                    continue
+                # if there is no clear match, check how well they match
+                if (src_net_depth == dst_net_depth or net_delta_depth == fp_delta_depth) and src_net_path[-1] == dst_net_path[-1]:
+                    net_pairs.append(net_pair)
+                    continue
+                connectivity_issues.append((fp_pair[1].ref, pad_nr))
+        if connectivity_issues:
+            """
+            report_string = ""
+            for item in connectivity_issues:
+                report_string = report_string + f"Footprint {item[0]}, pad {item[1]}\n"
+            logger.info(f"Looks like the design has an exotic connectivity that is not supported by the plugin\n"
+                        f"Make sure that you check the connectivity around:\n" + report_string)
+            """
+            self.connectivity_issues.update(connectivity_issues)
 
         # remove duplicates
         net_pairs_clean = list(set(net_pairs))
+        logger.info("Net pairs for sheet " + repr(sheet) + " :" + repr(net_pairs_clean))
 
-        return net_pairs_clean, net_dict
+        return net_pairs_clean
 
     def replicate_footprints(self):
         logger.info("Replicating footprints")
@@ -778,9 +786,10 @@ class Replicator:
 
                 # convert to tuple of integers
                 new_pos = [int(x) for x in new_pos]
+                dst_fp_pos = pcbnew.VECTOR2I(*new_pos)
                 # place current footprint - only if current footprint is not also the anchor
                 if dst_fp.ref != dst_anchor_fp.ref:
-                    dst_fp.fp.SetPosition(pcbnew.VECTOR2I(new_pos[0], new_pos[1]))
+                    dst_fp.fp.SetPosition(dst_fp_pos)
 
                     if dst_fp.fp.IsFlipped() != src_fp_flipped:
                         dst_fp.fp.Flip(dst_fp.fp.GetPosition(), False)
@@ -803,10 +812,10 @@ class Replicator:
                         delta_angle = dst_anchor_fp_angle + src_anchor_fp_angle
                         dst_fp_rel_pos_rot = rotate_around_center([-src_fp_rel_pos[0], src_fp_rel_pos[1]],
                                                                   -delta_angle)
-                        dst_fp_rel_pos = dst_anchor_fp_position + pcbnew.VECTOR2I(dst_fp_rel_pos_rot[0],
+                        dst_fp_pos = dst_anchor_fp_position + pcbnew.VECTOR2I(dst_fp_rel_pos_rot[0],
                                                                                   dst_fp_rel_pos_rot[1])
                         # also need to change the angle
-                        dst_fp.fp.SetPosition(dst_fp_rel_pos)
+                        dst_fp.fp.SetPosition(dst_fp_pos)
                         src_fp_flipped_orientation = flipped_angle(src_fp_orientation)
                         flipped_delta = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
                         new_orientation = src_fp_flipped_orientation - flipped_delta
@@ -834,11 +843,9 @@ class Replicator:
                 for src_text in src_fp_text_items:
                     txt_index = src_fp_text_items.index(src_text)
                     src_txt_pos = src_text.GetPosition()
-                    src_txt_rel_pos = src_txt_pos - src_fp.fp.GetBoundingBox(False, False).Centre()
+                    src_txt_rel_pos = src_txt_pos - src_fp_pos
                     src_txt_orientation = src_text.GetTextAngleDegrees()
                     delta_angle = dst_fp_orientation - src_fp_orientation
-
-                    dst_fp_pos = dst_fp.fp.GetBoundingBox(False, False).Centre()
                     dst_text = dst_fp_text_items[txt_index]
 
                     dst_text.SetLayer(src_text.GetLayer())
@@ -891,7 +898,7 @@ class Replicator:
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
             delta_orientation = dst_anchor_fp_angle - src_anchor_fp_angle
 
-            net_pairs, net_dict = self.get_net_pairs(sheet)
+            net_pairs = self.get_net_pairs(sheet)
 
             # go through all the tracks
             nr_tracks = len(self.src_tracks)
@@ -910,13 +917,13 @@ class Replicator:
                     pass
                 else:
                     to_net_name = tup[0][1]
-                    to_net_code = net_dict[to_net_name].GetNetCode()
-                    to_net_item = net_dict[to_net_name]
+                    to_net_code = self.netdict.GetNetItem(to_net_name).GetNetCode()
+                    #to_net_item = self.netdict.GetNetItem(to_net_name)
 
                     # make a duplicate, move it, rotate it, select proper net and add it to the board
                     new_track = track.Duplicate()
                     new_track.SetNetCode(to_net_code)
-                    new_track.SetNet(to_net_item)
+                    #new_track.SetNet(to_net_item)
                     new_track.Move(move_vector)
                     if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                         new_track.Flip(dst_anchor_fp_position, False)
@@ -950,7 +957,7 @@ class Replicator:
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
             delta_orientation = dst_anchor_fp_angle - src_anchor_fp_angle
 
-            net_pairs, net_dict = self.get_net_pairs(sheet)
+            net_pairs = self.get_net_pairs(sheet)
             # go through all the zones
             nr_zones = len(self.src_zones)
             for zone_index in range(nr_zones):
@@ -989,14 +996,14 @@ class Replicator:
                     to_net_code = 0
                     to_net_item = self.board.FindNet(0)
                 else:
-                    to_net_code = net_dict[to_net_name].GetNetCode()
-                    to_net_item = net_dict[to_net_name]
+                    to_net_code = self.netdict.GetNetItem(to_net_name).GetNetCode()
+                    #to_net_item = self.netdict.GetNetItem(to_net_name)
 
                 # make a duplicate, move it, rotate it, select proper net and add it to the board
                 new_zone = zone.Duplicate()
                 new_zone.Move(move_vector)
                 new_zone.SetNetCode(to_net_code)
-                new_zone.SetNet(to_net_item)
+                #new_zone.SetNet(to_net_item)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_zone.Flip(dst_anchor_fp_position, False)
                     delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle

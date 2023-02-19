@@ -29,6 +29,25 @@ from .replicate_layout_GUI import ReplicateLayoutGUI
 from .error_dialog_GUI import ErrorDialogGUI
 from .replicate_layout import Replicator
 from .replicate_layout import Settings
+from .conn_issue_GUI import ConnIssueGUI
+
+
+class ConnIssueDialog(ConnIssueGUI):
+    def SetSizeHints(self, sz1, sz2):
+        # DO NOTHING
+        pass
+
+    def __init__(self, parent, replicator):
+        super(ConnIssueDialog, self).__init__(parent)
+
+        self.list.InsertColumn(0, 'Footprint', width=100)
+        self.list.InsertColumn(1, 'Pad', width=100)
+
+        index = 0
+        for issue in replicator.connectivity_issues:
+            self.list.InsertItem(index, issue[0])
+            self.list.SetItem(index, 1, issue[1])
+            index = index + 1
 
 
 class ErrorDialog(ErrorDialogGUI):
@@ -202,6 +221,20 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                                              settings, remove_duplicates)
                                              
             self.logger.info("Replication complete")
+
+            if self.replicator.connectivity_issues:
+                self.logger.info("Letting the user know there are some issues with replicated design")
+                report_string = ""
+                for item in self.replicator.connectivity_issues:
+                    report_string = report_string + f"Footprint {item[0]}, pad {item[1]}\n"
+                self.logger.info(f"Looks like the design has an exotic connectivity that is not supported by the "
+                                 f"plugin\n "
+                                 f"Make sure that you check the connectivity around:\n" + report_string)
+                # show dialog
+                issue_dlg = ConnIssueDialog(self, self.replicator)
+                issue_dlg.ShowModal()
+                issue_dlg.Destroy()
+
             # clear highlight on all footprints on selected level
             self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
             self.hl_fps = []
