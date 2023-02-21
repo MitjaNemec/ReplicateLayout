@@ -200,11 +200,19 @@ class Replicator:
                         path = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
                         sheet_id = path.replace('00000000-0000-0000-0000-0000', '')
                     if "(property \"Sheet name\"" in contents[j] or "(property \"Sheetname\"" in contents[j]:
-                        sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
-                        sn_found = True
+                        if "(property \"Sheet name\"" in contents[j]:
+                            sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
+                            sn_found = True
+                        if "(property \"Sheetname\"" in contents[j]:
+                            sheetname = contents[j].replace("(property \"Sheetname\"", '').split("(")[0].replace("\"", "").strip()
+                            sn_found = True
                     if "(property \"Sheet file\"" in contents[j] or "(property \"Sheetfile\"" in contents[j]:
-                        sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
-                        sf_found = True
+                        if "(property \"Sheet file\"" in contents[j]:
+                            sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                            sf_found = True
+                        if "(property \"Sheetfile\"" in contents[j]:
+                            sheetfile = contents[j].replace("(property \"Sheetfile\"", '').split("(")[0].replace("\"", "").strip()
+                            sf_found = True
                 # properly handle property not found
                 if not sn_found or not sf_found:
                     logger.info(f'Did not found sheetfile and/or sheetname properties in the schematic file '
