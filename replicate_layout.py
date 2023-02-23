@@ -195,7 +195,6 @@ class Replicator:
                 sn_found = False
                 sf_found = False
                 for j in range(i,i+10):
-                    line_con = contents[j]
                     if "(uuid " in contents[j]:
                         path = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
                         sheet_id = path.replace('00000000-0000-0000-0000-0000', '')

@@ -32,6 +32,7 @@ cp replicate_layout.py plugins
 cp remove_duplicates.py plugins
 cp replicate_layout_GUI.py plugins
 cp error_dialog_GUI.py plugins
+cp conn_issue_GUI.py plugins
 cp version.txt plugins
 mkdir resources
 cp replicate_layout.png resources/icon.png
