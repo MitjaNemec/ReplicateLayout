@@ -703,6 +703,8 @@ class Replicator:
                 if (src_net_depth == dst_net_depth or net_delta_depth == fp_delta_depth) and src_net_path[-1] == dst_net_path[-1]:
                     net_pairs.append(net_pair)
                     continue
+                # if I didn't find proper pair, append it to list for reporting
+                logger.info(f"Cannot pair src net: {src_net_path} and dst net: {dst_net_path}")
                 connectivity_issues.append((fp_pair[1].ref, pad_nr))
         if connectivity_issues:
             """
