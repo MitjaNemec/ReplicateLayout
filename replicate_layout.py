@@ -688,6 +688,10 @@ class Replicator:
                 src_fp_depth = len(fp_pair[0].sheet_id)
                 dst_fp_depth = len(fp_pair[1].sheet_id)
                 fp_delta_depth = src_fp_depth - dst_fp_depth
+                # if both nets are local, they should match
+                if (src_net_depth == 1) and (dst_net_depth == 1):
+                    net_pairs.append(net_pair)
+                    continue
                 # if there is no clear match, check how well they match
                 if (src_net_depth == dst_net_depth or net_delta_depth == fp_delta_depth) and src_net_path[-1] == dst_net_path[-1]:
                     net_pairs.append(net_pair)
