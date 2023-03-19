@@ -200,11 +200,19 @@ class Replicator:
                         path = contents[j].replace("(uuid ", '').rstrip(")").upper().strip()
                         sheet_id = path.replace('00000000-0000-0000-0000-0000', '')
                     if "(property \"Sheet name\"" in contents[j] or "(property \"Sheetname\"" in contents[j]:
-                        sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
-                        sn_found = True
+                        if "(property \"Sheet name\"" in contents[j]:
+                            sheetname = contents[j].replace("(property \"Sheet name\"", '').split("(")[0].replace("\"", "").strip()
+                            sn_found = True
+                        if "(property \"Sheetname\"" in contents[j]:
+                            sheetname = contents[j].replace("(property \"Sheetname\"", '').split("(")[0].replace("\"", "").strip()
+                            sn_found = True
                     if "(property \"Sheet file\"" in contents[j] or "(property \"Sheetfile\"" in contents[j]:
-                        sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
-                        sf_found = True
+                        if "(property \"Sheet file\"" in contents[j]:
+                            sheetfile = contents[j].replace("(property \"Sheet file\"", '').split("(")[0].replace("\"", "").strip()
+                            sf_found = True
+                        if "(property \"Sheetfile\"" in contents[j]:
+                            sheetfile = contents[j].replace("(property \"Sheetfile\"", '').split("(")[0].replace("\"", "").strip()
+                            sf_found = True
                 # properly handle property not found
                 if not sn_found or not sf_found:
                     logger.info(f'Did not found sheetfile and/or sheetname properties in the schematic file '
@@ -692,10 +700,19 @@ class Replicator:
                 if (src_net_depth == 1) and (dst_net_depth == 1):
                     net_pairs.append(net_pair)
                     continue
-                # if there is no clear match, check how well they match
+                # try to handle exotic cases
                 if (src_net_depth == dst_net_depth or net_delta_depth == fp_delta_depth) and src_net_path[-1] == dst_net_path[-1]:
                     net_pairs.append(net_pair)
                     continue
+                if (src_net_depth == dst_net_depth) and (src_net_path[0:-1] == dst_net_path[0:-1]):
+                    net_pairs.append(net_pair)
+                    continue
+                shorter_lenght = min(src_net_depth, dst_net_depth)
+                if (net_delta_depth == fp_delta_depth) and (src_net_path[-shorter_lenght:-1] == dst_net_path[-shorter_lenght:-1]):
+                    net_pairs.append(net_pair)
+                    continue
+                # if I didn't find proper pair, append it to list for reporting
+                logger.info(f"Cannot pair src net: {src_net_path} and dst net: {dst_net_path}")
                 connectivity_issues.append((fp_pair[1].ref, pad_nr))
         if connectivity_issues:
             """
