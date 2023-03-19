@@ -699,8 +699,15 @@ class Replicator:
                 if (src_net_depth == 1) and (dst_net_depth == 1):
                     net_pairs.append(net_pair)
                     continue
-                # if there is no clear match, check how well they match
+                # try to handle exotic cases
                 if (src_net_depth == dst_net_depth or net_delta_depth == fp_delta_depth) and src_net_path[-1] == dst_net_path[-1]:
+                    net_pairs.append(net_pair)
+                    continue
+                if (src_net_depth == dst_net_depth) and (src_net_path[0:-1] == dst_net_path[0:-1]):
+                    net_pairs.append(net_pair)
+                    continue
+                shorter_lenght = min(src_net_depth, dst_net_depth)
+                if (net_delta_depth == fp_delta_depth) and (src_net_path[-shorter_lenght:-1] == dst_net_path[-shorter_lenght:-1]):
                     net_pairs.append(net_pair)
                     continue
                 # if I didn't find proper pair, append it to list for reporting

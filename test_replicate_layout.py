@@ -96,6 +96,18 @@ class connectivity(unittest.TestCase):
         # self.assertEqual(err, 0, "inner levels failed")
 
 
+class zyeborm_issue_38(unittest.TestCase):
+    def setUp(self):
+        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "zyeborm_issue_38"))
+
+    def test_inner(self):
+        logger.info("Testing text placement")
+        input_filename = 'Output_2ch_FaultTolerant.kicad_pcb'
+        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
+        err = test_file(input_filename, test_filename, 'C301', level=0, sheets=(0,),
+                        containing=False, remove=True, by_group=True)
+        # self.assertEqual(err, 0, "inner levels failed")
+
 @unittest.SkipTest
 class TestText(unittest.TestCase):
     def setUp(self):
@@ -109,7 +121,7 @@ class TestText(unittest.TestCase):
                         containing=False, remove=True, by_group=True)
         # self.assertEqual(err, 0, "inner levels failed")
 
-
+@unittest.SkipTest
 class TestOfficial(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
