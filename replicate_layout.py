@@ -222,6 +222,10 @@ class Replicator:
 
                 # here I should find all sheet data
                 dict_of_sheets[sheet_id] = [sheetname, sheetfile]
+                # test if newfound file can be opened
+                if not os.path.exists(sheetfile):
+                    raise LookupError(f'File {sheetfile} does not exists. This is either due to error in parsing'
+                                      f' schematics files, missing schematics file or an error within the schematics')
                 # open a newfound file and look for nested sheets
                 self.parse_schematic_files(sheetfile, dict_of_sheets)
         return
@@ -712,7 +716,9 @@ class Replicator:
                     net_pairs.append(net_pair)
                     continue
                 # if I didn't find proper pair, append it to list for reporting
-                logger.info(f"Cannot pair src net: {src_net_path} and dst net: {dst_net_path}")
+                logger.info(f"Cannot pair src net: {src_net_path} and dst net: {dst_net_path}, "
+                            f"with src_net_depth={src_net_depth}, dst_net_depth={dst_net_depth}, "
+                            f"src_fp_depth={src_fp_depth}, dst_fp_depth={dst_fp_depth}")
                 connectivity_issues.append((fp_pair[1].ref, pad_nr))
         if connectivity_issues:
             """
