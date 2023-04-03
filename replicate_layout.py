@@ -131,7 +131,7 @@ class Replicator:
             except KeyError:
                 logger.info("Footprint " + fp.GetReference() +
                             " does not have Sheetfile property, it will not be replicated."
-                            " Most likely it is only in schematics")
+                            " Most likely it is only in layout")
                 continue
             # footprint is in the schematics and has Sheetfile property
             if sheet_file and sheet_id:
@@ -185,6 +185,7 @@ class Replicator:
     def parse_schematic_files(self, filename, dict_of_sheets):
         with open(filename, encoding='utf-8') as f:
             contents = f.read().split("\n")
+        filename_dir = os.path.dirname(filename)
         # find (sheet (at and then look in next few lines for new schematics file
         for i in range(len(contents)):
             line = contents[i]
@@ -219,10 +220,15 @@ class Replicator:
                     raise LookupError(f'Did not found sheetfile and/or sheetname properties in the schematic file '
                                 f'in {filename} line:{str(i)}. Unsupported schematics file format')
 
+                sheetfilepath = os.path.join(filename_dir, sheetfile)
                 # here I should find all sheet data
-                dict_of_sheets[sheet_id] = [sheetname, sheetfile]
+                dict_of_sheets[sheet_id] = [sheetname, sheetfilepath]
+                # test if newfound file can be opened
+                if not os.path.exists(sheetfilepath):
+                    raise LookupError(f'File {sheetfilepath} does not exists. This is either due to error in parsing'
+                                      f' schematics files, missing schematics file or an error within the schematics')
                 # open a newfound file and look for nested sheets
-                self.parse_schematic_files(sheetfile, dict_of_sheets)
+                self.parse_schematic_files(sheetfilepath, dict_of_sheets)
         return
 
     def replicate_layout(self, src_anchor_fp, level, dst_sheets,
