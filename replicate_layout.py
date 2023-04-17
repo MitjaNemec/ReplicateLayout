@@ -717,7 +717,9 @@ class Replicator:
                     net_pairs.append(net_pair)
                     continue
                 # if I didn't find proper pair, append it to list for reporting
-                logger.info(f"Cannot pair src net: {src_net_path} and dst net: {dst_net_path}")
+                logger.info(f"Cannot pair src net: {src_net_path} and dst net: {dst_net_path}, "
+                            f"with src_net_depth={src_net_depth}, dst_net_depth={dst_net_depth}, "
+                            f"src_fp_depth={src_fp_depth}, dst_fp_depth={dst_fp_depth}")
                 connectivity_issues.append((fp_pair[1].ref, pad_nr))
         if connectivity_issues:
             """
