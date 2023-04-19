@@ -4,7 +4,7 @@
 Replicate layout of one hierarchical sheet to other hierarchical sheets. The replication is based upon hierarchical sheets in eeschema. The basic requirement for replication is that the section to be replicated (source) is completely contained within a single hierarchical sheet, and replicated sections (destination) are just copies of the same sheet. Complex hierarchies are supported therefore replicated sheet can contain subsheets. The plugin replicates footprints, zones, tracks, text and drawings.
 
 After the section for replication (source section) has been laid out (footprints, tracks, text objects and zones placed) you need to:
-1. Place the anchor footprints for the destiantion sections you want to replicate. This defines the position and orientation of replicated sections. You can use PlaceFootprints action plugin for this.
+1. Place the anchor footprints for the destination sections you want to replicate. This defines the position and orientation of replicated sections. You can use PlaceFootprints action plugin for this.
 2. Select the same anchor footprint within the source section.
 3. Run the plugin.
 4. Choose which hierarchical level you wish to replicate.
