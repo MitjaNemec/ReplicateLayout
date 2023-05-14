@@ -81,6 +81,21 @@ def flipped_angle(angle):
         return -180 - angle
 
 
+og_Duplicate = pcbnew.BOARD_ITEM.Duplicate
+def Duplicate7(aBoardItem):
+    ''' KiCad 7 has a bug where Duplicate always returns BOARD_ITEM
+        instead of the type of the caller, so this function includes a cast.
+    '''
+    dup = og_Duplicate(aBoardItem)
+    caster_attr = 'Cast_to_' + type(aBoardItem).__name__
+    try:
+        caster_fun = getattr(pcbnew, caster_attr)
+    except AttributeError:  # This might hit in v5 and some versions of v6
+        return dup
+    else:
+        return caster_fun(dup)
+pcbnew.BOARD_ITEM.Duplicate = Duplicate7  # Monkey patch. The alternative is changing code below
+
 class Replicator:
     def __init__(self, board, src_anchor_fp_ref, update_func=update_progress):
         self.board = board
