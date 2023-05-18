@@ -1066,7 +1066,7 @@ class Replicator:
                 progress = progress + (1 / nr_sheets) * (1 / nr_text)
                 self.update_progress(self.stage, progress, None)
 
-                new_text = text.Duplicate(.Cast()
+                new_text = text.Duplicate().Cast()
                 new_text.Move(move_vector)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_text.Flip(dst_anchor_fp_position, False)
