@@ -34,9 +34,11 @@ Footprint = namedtuple('Footprint', ['ref', 'fp', 'fp_id', 'sheet_id', 'filename
 logger = logging.getLogger(__name__)
 
 Settings = namedtuple('Settings', ['rep_tracks', 'rep_zones', 'rep_text', 'rep_drawings',
+                                   'group_layouts', 'group_footprints', 'group_tracks', 'group_zones', 'group_text', 'group_drawings',
                                    'rep_locked_tracks', 'rep_locked_zones', 'rep_locked_text', 'rep_locked_drawings',
                                    'intersecting', 'group_items', 'group_only', 'locked_fps', 'remove'],
                          defaults=[True, True, True, True,
+                                   False, False, False, False, False, False,
                                    True, True, True, True,
                                    False, False, False, False, False])
 
@@ -95,6 +97,7 @@ class Replicator:
         self.replicate_locked_footprints = None
         self.src_sheet = None
         self.dst_sheets = []
+        self.repl_groups = []
         self.src_footprints = []
         self.other_footprints = []
         self.src_bounding_box = None
@@ -271,7 +274,7 @@ class Replicator:
             self.remove_zones_tracks(settings.intersecting)
         self.stage = 3
         self.update_progress(self.stage, 0.0, "Replicating footprints")
-        self.replicate_footprints()
+        self.replicate_footprints(settings)
         if settings.remove:
             logger.info("Removing tracks and zones, after footprint placement")
             self.stage = 4
@@ -280,19 +283,19 @@ class Replicator:
         if settings.rep_tracks:
             self.stage = 5
             self.update_progress(self.stage, 0.0, "Replicating tracks")
-            self.replicate_tracks()
+            self.replicate_tracks(settings)
         if settings.rep_zones:
             self.stage = 6
             self.update_progress(self.stage, 0.0, "Replicating zones")
-            self.replicate_zones()
+            self.replicate_zones(settings)
         if settings.rep_text:
             self.stage = 7
             self.update_progress(self.stage, 0.0, "Replicating text")
-            self.replicate_text()
+            self.replicate_text(settings)
         if settings.rep_drawings:
             self.stage = 8
             self.update_progress(self.stage, 0.0, "Replicating drawings")
-            self.replicate_drawings()
+            self.replicate_drawings(settings)
         if rm_duplicates:
             self.stage = 9
             self.update_progress(self.stage, 0.0, "Removing duplicates")
@@ -737,11 +740,21 @@ class Replicator:
 
         return net_pairs_clean
 
-    def replicate_footprints(self):
+    def replicate_footprints(self, settings):
         logger.info("Replicating footprints")
         nr_sheets = len(self.dst_sheets)
         for st_index in range(nr_sheets):
             sheet = self.dst_sheets[st_index]
+
+            # create groups for each destination layout if selected
+            if settings.group_layouts:
+                REPL_GROUP_NAME = "Replicated Group {}".format(sheet)
+                self.pcb_group = pcbnew.PCB_GROUP(None)
+                self.pcb_group.SetName(REPL_GROUP_NAME)
+                self.board.Add(self.pcb_group)
+                # store destination lauouts' groups
+                self.repl_groups.append(self.pcb_group)
+
             progress = st_index / nr_sheets
             self.update_progress(self.stage, progress, None)
             logger.info("Replicating footprints on sheet " + repr(sheet))
@@ -826,6 +839,10 @@ class Replicator:
                 dst_fp.fp.SetLocalSolderPasteMarginRatio(src_fp.fp.GetLocalSolderPasteMarginRatio())
                 dst_fp.fp.SetZoneConnection(src_fp.fp.GetZoneConnection())
 
+                # add footprints to corresponding layout groups if selected
+                if settings.group_footprints:
+                    self.pcb_group.AddItem(dst_fp.fp)
+                    
                 # flip if dst anchor is flipped with regards to src anchor
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     # ignore anchor fp
@@ -902,7 +919,7 @@ class Replicator:
                     dst_text.SetKeepUpright(src_text.IsKeepUpright())
                     dst_text.SetVisible(src_text.IsVisible())
 
-    def replicate_tracks(self):
+    def replicate_tracks(self, settings):
         logger.info("Replicating tracks")
         nr_sheets = len(self.dst_sheets)
         for st_index in range(nr_sheets):
@@ -913,6 +930,14 @@ class Replicator:
 
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
+
+            # get group for destination layout
+            if settings.group_tracks:
+                repl_group = self.repl_groups[st_index]
+
+            # get source group from sourse footprint
+            source_group = self.src_anchor_fp.fp.GetParentGroup()
+
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
 
@@ -957,9 +982,16 @@ class Replicator:
                     else:
                         new_track.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
 
+                    # prevent tracks from being added into source group
+                    if source_group is not None:
+                        source_group.RemoveItem(new_track)                    
+                    # add tracks to corresponding layout groups if selected
+                    if settings.group_tracks:
+                        repl_group.AddItem(new_track)
+
                     self.board.Add(new_track)
 
-    def replicate_zones(self):
+    def replicate_zones(self, settings):
         """ method which replicates zones"""
         logger.info("Replicating zones")
         # start cloning
@@ -974,6 +1006,13 @@ class Replicator:
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
+
+            # get group for destination layout
+            if settings.group_zones:
+                repl_group = self.repl_groups[st_index]
+
+            # get source group from sourse footprint
+            source_group = self.src_anchor_fp.fp.GetParentGroup()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
@@ -1036,9 +1075,16 @@ class Replicator:
                 else:
                     new_zone.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
 
+                # prevent zones from being added into source group
+                if source_group is not None:
+                        source_group.RemoveItem(new_zone)
+                # add zones to corresponding layout groups if selected
+                if settings.group_zones:
+                    repl_group.AddItem(new_zone)
+
                 self.board.Add(new_zone)
 
-    def replicate_text(self):
+    def replicate_text(self, settings):
         logger.info("Replicating text")
         # start cloning
         nr_sheets = len(self.dst_sheets)
@@ -1052,6 +1098,13 @@ class Replicator:
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
+
+            # get group for destination layout
+            if settings.group_text:
+                repl_group = self.repl_groups[st_index]
+
+            # get source group from sourse footprint
+            source_group = self.src_anchor_fp.fp.GetParentGroup()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
@@ -1076,9 +1129,16 @@ class Replicator:
                 else:
                     new_text.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
 
+                # prevent text from being added into source group
+                if source_group is not None:
+                        source_group.RemoveItem(new_text)
+                # add text to corresponding layout groups if selected
+                if settings.group_text:
+                    repl_group.AddItem(new_text)
+
                 self.board.Add(new_text)
 
-    def replicate_drawings(self):
+    def replicate_drawings(self, settings):
         logger.info("Replicating drawings")
         nr_sheets = len(self.dst_sheets)
         for st_index in range(nr_sheets):
@@ -1091,6 +1151,13 @@ class Replicator:
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
+
+            # get group for destination layout
+            if settings.group_drawings:
+                repl_group = self.repl_groups[st_index]
+
+            # get source group from sourse footprint
+            source_group = self.src_anchor_fp.fp.GetParentGroup()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
             src_anchor_fp_position = self.src_anchor_fp.fp.GetPosition()
@@ -1116,6 +1183,13 @@ class Replicator:
                     new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.DEGREES_T))
                 else:
                     new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
+
+                # prevent drawings from being added into source group
+                if source_group is not None:
+                        source_group.RemoveItem(new_drawing)
+                # add drawings to corresponding layout groups if selected
+                if settings.group_drawings:
+                    repl_group.AddItem(new_drawing)
 
                 self.board.Add(new_drawing)
 

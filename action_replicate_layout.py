@@ -110,6 +110,40 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                 self.chkbox_include_group_items.Disable()
                 self.chkbox_include_group_items.SetValue(False)
 
+        if self.chkbox_group_layouts.GetValue():
+            self.chkbox_group_footprints.Enable(True)
+            if self.chkbox_tracks.GetValue():
+                self.chkbox_group_tracks.Enable(True)
+            else:
+                self.chkbox_group_tracks.Disable()
+                self.chkbox_group_tracks.SetValue(False)
+            if self.chkbox_zones.GetValue():
+                self.chkbox_group_zones.Enable(True)
+            else:
+                self.chkbox_group_zones.Disable()
+                self.chkbox_group_zones.SetValue(False)
+            if self.chkbox_text.GetValue():
+                self.chkbox_group_text.Enable(True)
+            else:
+                self.chkbox_group_text.Disable()
+                self.chkbox_group_text.SetValue(False)
+            if self.chkbox_drawings.GetValue():
+                self.chkbox_group_drawings.Enable(True)
+            else: 
+                self.chkbox_group_drawings.Disable()
+                self.chkbox_group_drawings.SetValue(False)
+        else:
+            self.chkbox_group_footprints.Disable()
+            self.chkbox_group_footprints.SetValue(False)
+            self.chkbox_group_tracks.Disable()
+            self.chkbox_group_tracks.SetValue(False)
+            self.chkbox_group_zones.Disable()
+            self.chkbox_group_zones.SetValue(False)
+            self.chkbox_group_text.Disable()
+            self.chkbox_group_text.SetValue(False)
+            self.chkbox_group_drawings.Disable()
+            self.chkbox_group_drawings.SetValue(False)
+
         # clear highlight on all footprints on selected level
         self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
         self.hl_fps = []
@@ -148,6 +182,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         # parse the settings
         settings = Settings(rep_tracks=self.chkbox_tracks.GetValue(), rep_zones=self.chkbox_zones.GetValue(),
                             rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
+                            group_layouts=self.chkbox_group_layouts.GetValue(), group_footprints=self.chkbox_group_footprints.GetValue(),
+                            group_tracks=self.chkbox_group_tracks.GetValue(), group_zones=self.chkbox_group_zones.GetValue(),
+                            group_text=self.chkbox_group_text.GetValue(), group_drawings=self.chkbox_group_drawings.GetValue(),
                             rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
                             rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
                             intersecting=self.chkbox_intersecting.GetValue(), group_items=self.chkbox_include_group_items.GetValue(),
@@ -183,6 +220,9 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         # parse the settings
         settings = Settings(rep_tracks=self.chkbox_tracks.GetValue(), rep_zones=self.chkbox_zones.GetValue(),
                             rep_text=self.chkbox_text.GetValue(), rep_drawings=self.chkbox_drawings.GetValue(),
+                            group_layouts=self.chkbox_group_layouts.GetValue(), group_footprints=self.chkbox_group_footprints.GetValue(),
+                            group_tracks=self.chkbox_group_tracks.GetValue(), group_zones=self.chkbox_group_zones.GetValue(),
+                            group_text=self.chkbox_group_text.GetValue(), group_drawings=self.chkbox_group_drawings.GetValue(),
                             rep_locked_tracks=self.chkbox_locked_tracks.GetValue(), rep_locked_zones=self.chkbox_locked_zones.GetValue(),
                             rep_locked_text=self.chkbox_locked_text.GetValue(), rep_locked_drawings=self.chkbox_locked_drawings.GetValue(),
                             intersecting=self.chkbox_intersecting.GetValue(), group_items=self.chkbox_include_group_items.GetValue(),
