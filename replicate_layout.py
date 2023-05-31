@@ -935,7 +935,7 @@ class Replicator:
             if settings.group_tracks:
                 repl_group = self.repl_groups[st_index]
 
-            # get source group from sourse footprint
+            # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
 
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
@@ -1011,7 +1011,7 @@ class Replicator:
             if settings.group_zones:
                 repl_group = self.repl_groups[st_index]
 
-            # get source group from sourse footprint
+            # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
@@ -1103,7 +1103,7 @@ class Replicator:
             if settings.group_text:
                 repl_group = self.repl_groups[st_index]
 
-            # get source group from sourse footprint
+            # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
@@ -1156,7 +1156,7 @@ class Replicator:
             if settings.group_drawings:
                 repl_group = self.repl_groups[st_index]
 
-            # get source group from sourse footprint
+            # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
 
             src_anchor_fp_angle = self.src_anchor_fp.fp.GetOrientation().AsDegrees()
