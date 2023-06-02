@@ -110,6 +110,7 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                 self.chkbox_include_group_items.Disable()
                 self.chkbox_include_group_items.SetValue(False)
 
+        # enable/disable group checkboxes
         if self.chkbox_group_layouts.GetValue():
             self.chkbox_group_footprints.Enable(True)
             if self.chkbox_tracks.GetValue():

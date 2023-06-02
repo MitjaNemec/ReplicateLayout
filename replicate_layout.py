@@ -97,7 +97,7 @@ class Replicator:
         self.replicate_locked_footprints = None
         self.src_sheet = None
         self.dst_sheets = []
-        self.repl_groups = []
+        self.dst_groups = []
         self.src_footprints = []
         self.other_footprints = []
         self.src_bounding_box = None
@@ -339,6 +339,16 @@ class Replicator:
         self.update_progress(self.stage, 5 / 6, None)
         # if needed filter them by group
         self.src_drawings = self.get_drawings_for_replication(self.src_bounding_box, settings)
+
+        # create groups for each destination layout if selected
+        if settings.group_layouts:
+            for sheet in self.dst_sheets:
+                dst_group_name = "Replicated Group {}".format(sheet)
+                dst_group = pcbnew.PCB_GROUP(None)
+                dst_group.SetName(dst_group_name)
+                self.board.Add(dst_group)
+                # store destination lauouts' groups
+                self.dst_groups.append(dst_group)
 
     @staticmethod
     def get_footprint_id(footprint):
@@ -746,15 +756,6 @@ class Replicator:
         for st_index in range(nr_sheets):
             sheet = self.dst_sheets[st_index]
 
-            # create groups for each destination layout if selected
-            if settings.group_layouts:
-                REPL_GROUP_NAME = "Replicated Group {}".format(sheet)
-                self.pcb_group = pcbnew.PCB_GROUP(None)
-                self.pcb_group.SetName(REPL_GROUP_NAME)
-                self.board.Add(self.pcb_group)
-                # store destination lauouts' groups
-                self.repl_groups.append(self.pcb_group)
-
             progress = st_index / nr_sheets
             self.update_progress(self.stage, progress, None)
             logger.info("Replicating footprints on sheet " + repr(sheet))
@@ -841,9 +842,9 @@ class Replicator:
 
                 # add footprints to corresponding layout groups if selected
                 if settings.group_footprints:
-                    self.pcb_group.AddItem(dst_fp.fp)
+                    self.dst_groups[st_index].AddItem(dst_fp.fp)
                     
-                # flip if dst anchor is flipped with regards to src anchor
+                # flip if dst anchor is flipped in regard to src anchor
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     # ignore anchor fp
                     if dst_anchor_fp != dst_fp:
@@ -931,10 +932,6 @@ class Replicator:
             # get anchor footprint
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
 
-            # get group for destination layout
-            if settings.group_tracks:
-                repl_group = self.repl_groups[st_index]
-
             # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
 
@@ -985,9 +982,10 @@ class Replicator:
                     # prevent tracks from being added into source group
                     if source_group is not None:
                         source_group.RemoveItem(new_track)                    
+
                     # add tracks to corresponding layout groups if selected
                     if settings.group_tracks:
-                        repl_group.AddItem(new_track)
+                        self.dst_groups[st_index].AddItem(new_track)
 
                     self.board.Add(new_track)
 
@@ -1006,10 +1004,6 @@ class Replicator:
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
-
-            # get group for destination layout
-            if settings.group_zones:
-                repl_group = self.repl_groups[st_index]
 
             # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
@@ -1078,9 +1072,10 @@ class Replicator:
                 # prevent zones from being added into source group
                 if source_group is not None:
                         source_group.RemoveItem(new_zone)
+
                 # add zones to corresponding layout groups if selected
                 if settings.group_zones:
-                    repl_group.AddItem(new_zone)
+                    self.dst_groups[st_index].AddItem(new_zone)
 
                 self.board.Add(new_zone)
 
@@ -1098,10 +1093,6 @@ class Replicator:
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
-
-            # get group for destination layout
-            if settings.group_text:
-                repl_group = self.repl_groups[st_index]
 
             # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
@@ -1132,9 +1123,10 @@ class Replicator:
                 # prevent text from being added into source group
                 if source_group is not None:
                         source_group.RemoveItem(new_text)
+
                 # add text to corresponding layout groups if selected
                 if settings.group_text:
-                    repl_group.AddItem(new_text)
+                    self.dst_groups[st_index].AddItem(new_text)
 
                 self.board.Add(new_text)
 
@@ -1151,10 +1143,6 @@ class Replicator:
             dst_anchor_fp = self.get_sheet_anchor_footprint(sheet)
             dst_anchor_fp_position = dst_anchor_fp.fp.GetPosition()
             dst_anchor_fp_angle = dst_anchor_fp.fp.GetOrientation().AsDegrees()
-
-            # get group for destination layout
-            if settings.group_drawings:
-                repl_group = self.repl_groups[st_index]
 
             # get source group from source footprint
             source_group = self.src_anchor_fp.fp.GetParentGroup()
@@ -1189,7 +1177,7 @@ class Replicator:
                         source_group.RemoveItem(new_drawing)
                 # add drawings to corresponding layout groups if selected
                 if settings.group_drawings:
-                    repl_group.AddItem(new_drawing)
+                    self.dst_groups[st_index].AddItem(new_drawing)
 
                 self.board.Add(new_drawing)
 
