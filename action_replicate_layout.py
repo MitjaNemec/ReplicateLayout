@@ -268,8 +268,8 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
                 report_string = ""
                 for item in self.replicator.connectivity_issues:
                     report_string = report_string + f"Footprint {item[0]}, pad {item[1]}\n"
-                self.logger.info(f"Looks like the design has an exotic connectivity that is not supported by the "
-                                 f"plugin\n "
+                self.logger.info(f"Looks like the design has an exotic connectivity that the plugin might not"
+                                 f" handle properly\n "
                                  f"Make sure that you check the connectivity around:\n" + report_string)
                 # show dialog
                 issue_dlg = ConnIssueDialog(self, self.replicator)

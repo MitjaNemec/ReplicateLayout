@@ -25,6 +25,7 @@ import os
 import logging
 import itertools
 import math
+from difflib import SequenceMatcher
 try:
     from .remove_duplicates import remove_duplicates
 except:
@@ -718,21 +719,17 @@ class Replicator:
                 if (src_net_depth == 1) and (dst_net_depth == 1):
                     net_pairs.append(net_pair)
                     continue
-                # try to handle exotic cases
-                if (src_net_depth == dst_net_depth or net_delta_depth == fp_delta_depth) and src_net_path[-1] == dst_net_path[-1]:
+                # otherwise  just look at the net name similarity. And if they are pretty similar be content
+                match_level = self.find_match_level(src_net_path, dst_net_path)
+                if match_level > 0.8:
                     net_pairs.append(net_pair)
                     continue
-                if (src_net_depth == dst_net_depth) and (src_net_path[0:-1] == dst_net_path[0:-1]):
-                    net_pairs.append(net_pair)
-                    continue
-                shorter_lenght = min(src_net_depth, dst_net_depth)
-                if (net_delta_depth == fp_delta_depth) and (src_net_path[-shorter_lenght:-1] == dst_net_path[-shorter_lenght:-1]):
-                    net_pairs.append(net_pair)
-                    continue
-                # if I didn't find proper pair, append it to list for reporting
-                logger.info(f"Cannot pair src net: {src_net_path} and dst net: {dst_net_path}, "
-                            f"with src_net_depth={src_net_depth}, dst_net_depth={dst_net_depth}, "
-                            f"src_fp_depth={src_fp_depth}, dst_fp_depth={dst_fp_depth}")
+
+                # if I didn't find proper pair, append it anyway but addit to the list for reporting a warnning
+                net_pairs.append(net_pair)
+                logger.warning(f"Significant difference between src net: {src_net_path} and dst net: {dst_net_path}, "
+                               f"with src_net_depth={src_net_depth}, dst_net_depth={dst_net_depth}, "
+                               f"src_fp_depth={src_fp_depth}, dst_fp_depth={dst_fp_depth}, match level {match_level:.2f}")
                 connectivity_issues.append((fp_pair[1].ref, pad_nr))
         if connectivity_issues:
             """
@@ -749,6 +746,41 @@ class Replicator:
         logger.info("Net pairs for sheet " + repr(sheet) + " :" + repr(net_pairs_clean))
 
         return net_pairs_clean
+
+    @staticmethod
+    def find_match_level(netname_a, netname_b):
+        len_nets_1 = len(netname_a)
+        len_nets_2 = len(netname_b)
+        # if both lengths are the same
+        if len_nets_1 == len_nets_2:
+            good_match_count = 0
+            for i in range(len_nets_1):
+                for j in range(len_nets_2):
+                    a = netname_a[i]
+                    b = netname_b[j]
+                    match_ratio = SequenceMatcher(a=netname_a[i], b=netname_b[j]).ratio()
+                    good_match_count = good_match_count + match_ratio
+            # normalize for the lenght
+            return good_match_count / len_nets_1
+        # otherwise match all of the shortest ones with all of the longest ones
+        else:
+            good_match_count = 0
+            if len_nets_1 < len_nets_2:
+                for i in range(len_nets_1):
+                    for j in range(len_nets_2):
+                        a = netname_a[i]
+                        b = netname_b[j]
+                        match_ratio = SequenceMatcher(a=netname_a[i], b=netname_b[j]).ratio()
+                        good_match_count = good_match_count + match_ratio
+                return good_match_count / len_nets_1
+            else:
+                for i in range(len_nets_2):
+                    for j in range(len_nets_1):
+                        a = netname_b[i]
+                        b = netname_a[j]
+                        match_ratio = SequenceMatcher(a=netname_b[i], b=netname_a[j]).ratio()
+                        good_match_count = good_match_count + match_ratio
+                return good_match_count / len_nets_2
 
     def replicate_footprints(self, settings):
         logger.info("Replicating footprints")
