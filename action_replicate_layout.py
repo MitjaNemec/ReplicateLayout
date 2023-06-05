@@ -91,6 +91,33 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
     def __del__(self):
         self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
 
+    def group_layout_changed( self, event ):
+        # when enabled, they should be checked by default
+        if self.chkbox_group_layouts.GetValue():
+            self.chkbox_group_footprints.Enable(True)
+            self.chkbox_group_footprints.SetValue(True)
+            self.chkbox_group_tracks.Enable(True)
+            self.chkbox_group_tracks.SetValue(True)
+            self.chkbox_group_zones.Enable(True)
+            self.chkbox_group_zones.SetValue(True)
+            self.chkbox_group_text.Enable(True)
+            self.chkbox_group_text.SetValue(True)
+            self.chkbox_group_drawings.Enable(True)
+            self.chkbox_group_drawings.SetValue(True)
+        else:
+            self.chkbox_group_footprints.Disable()
+            self.chkbox_group_footprints.SetValue(False)
+            self.chkbox_group_tracks.Disable()
+            self.chkbox_group_tracks.SetValue(False)
+            self.chkbox_group_zones.Disable()
+            self.chkbox_group_zones.SetValue(False)
+            self.chkbox_group_text.Disable()
+            self.chkbox_group_text.SetValue(False)
+            self.chkbox_group_drawings.Disable()
+            self.chkbox_group_drawings.SetValue(False)
+        if event is not None:
+            event.Skip()
+
     def level_changed(self, event):
         index = self.list_levels.GetSelection()
         list_sheets_choices = self.replicator.get_sheets_to_replicate(self.src_anchor_fp,
@@ -109,41 +136,6 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
             else:
                 self.chkbox_include_group_items.Disable()
                 self.chkbox_include_group_items.SetValue(False)
-
-        # enable/disable group checkboxes
-        if self.chkbox_group_layouts.GetValue():
-            self.chkbox_group_footprints.Enable(True)
-            if self.chkbox_tracks.GetValue():
-                self.chkbox_group_tracks.Enable(True)
-            else:
-                self.chkbox_group_tracks.Disable()
-                self.chkbox_group_tracks.SetValue(False)
-            if self.chkbox_zones.GetValue():
-                self.chkbox_group_zones.Enable(True)
-            else:
-                self.chkbox_group_zones.Disable()
-                self.chkbox_group_zones.SetValue(False)
-            if self.chkbox_text.GetValue():
-                self.chkbox_group_text.Enable(True)
-            else:
-                self.chkbox_group_text.Disable()
-                self.chkbox_group_text.SetValue(False)
-            if self.chkbox_drawings.GetValue():
-                self.chkbox_group_drawings.Enable(True)
-            else: 
-                self.chkbox_group_drawings.Disable()
-                self.chkbox_group_drawings.SetValue(False)
-        else:
-            self.chkbox_group_footprints.Disable()
-            self.chkbox_group_footprints.SetValue(False)
-            self.chkbox_group_tracks.Disable()
-            self.chkbox_group_tracks.SetValue(False)
-            self.chkbox_group_zones.Disable()
-            self.chkbox_group_zones.SetValue(False)
-            self.chkbox_group_text.Disable()
-            self.chkbox_group_text.SetValue(False)
-            self.chkbox_group_drawings.Disable()
-            self.chkbox_group_drawings.SetValue(False)
 
         # clear highlight on all footprints on selected level
         self.replicator.highlight_clear_level(self.hl_fps, self.hl_items)
