@@ -341,15 +341,34 @@ class Replicator:
         # if needed filter them by group
         self.src_drawings = self.get_drawings_for_replication(self.src_bounding_box, settings)
 
+        # get all the existing groups
+        groups = self.board.Groups()
+        g_names = []
+        for g in groups:
+            g_names.append(g.GetName())
+
         # create groups for each destination layout if selected
         if settings.group_layouts:
             for sheet in self.dst_sheets:
                 dst_group_name = "Replicated Group {}".format(sheet)
+                # check if this group already exists
+                if dst_group_name in g_names:
+                    raise LookupError(f"Destination group {dst_group_name} already exists")
                 dst_group = pcbnew.PCB_GROUP(None)
                 dst_group.SetName(dst_group_name)
                 self.board.Add(dst_group)
                 # store destination lauouts' groups
                 self.dst_groups.append(dst_group)
+
+        # check if any destination footprints are already members of some groups
+        for sheet in self.dst_sheets:
+            dst_sheet_fps = self.get_footprints_on_sheet(sheet)
+            for fp in dst_sheet_fps:
+                fp_group = fp.fp.GetParentGroup()
+                if fp_group != "Replicated Group {}".format(sheet):
+                    raise LookupError(f"Destination footprint {fp} is a member of a different group. "
+                                      f"All destination plugin have either have to be members of destination group"
+                                      f" or no group at all.")
 
     @staticmethod
     def get_footprint_id(footprint):
@@ -873,7 +892,8 @@ class Replicator:
                 dst_fp.fp.SetZoneConnection(src_fp.fp.GetZoneConnection())
 
                 # add footprints to corresponding layout groups if selected
-                if settings.group_footprints:
+                # and if footprint is not already member of this group
+                if settings.group_footprints and dst_fp.fp.GetParentGroup() != self.dst_groups[st_index].GetName():
                     self.dst_groups[st_index].AddItem(dst_fp.fp)
                     
                 # flip if dst anchor is flipped in regard to src anchor
