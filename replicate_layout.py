@@ -338,7 +338,6 @@ class Replicator:
         # get source drawings
         logger.info("Getting source drawing items")
         self.update_progress(self.stage, 5 / 6, None)
-        # if needed filter them by group
         self.src_drawings = self.get_drawings_for_replication(self.src_bounding_box, settings)
 
         # get all the existing groups
@@ -352,6 +351,7 @@ class Replicator:
             for sheet in self.dst_sheets:
                 dst_group_name = "Replicated Group {}".format(sheet)
                 # check if this group already exists
+                # TODO this should no be an issue as existing group can/should be used for deletion of items
                 if dst_group_name in g_names:
                     raise LookupError(f"Destination group {dst_group_name} already exists")
                 dst_group = pcbnew.PCB_GROUP(None)
@@ -365,9 +365,10 @@ class Replicator:
             dst_sheet_fps = self.get_footprints_on_sheet(sheet)
             for fp in dst_sheet_fps:
                 fp_group = fp.fp.GetParentGroup()
-                if fp_group != "Replicated Group {}".format(sheet):
-                    raise LookupError(f"Destination footprint {fp} is a member of a different group. "
-                                      f"All destination plugin have either have to be members of destination group"
+                dst_group = "Replicated Group {}".format(sheet)
+                if (fp_group is not None) and (fp_group != dst_group):
+                    raise LookupError(f"Destination footprint {fp} is a member of a different group ({fp_group}). "
+                                      f"All destination plugin have either have to be members of destination group ({dst_group})"
                                       f" or no group at all.")
 
     @staticmethod
