@@ -177,7 +177,7 @@ class Replicator:
         # find anchor footprint and it's group
         self.src_anchor_fp = self.get_fp_by_ref(src_anchor_fp_ref)
         if self.src_anchor_fp.fp.GetParentGroup():
-            self.src_anchor_fp_group = self.src_anchor_fp.fp.GetParentGroup().GetName()
+            self.src_anchor_fp_group = self.src_anchor_fp.fp.GetParentGroup().this
         else:
             self.src_anchor_fp_group = None
         # TODO check if there is any other footprint with same ID as anchor footprint
@@ -1278,7 +1278,7 @@ class Replicator:
             if not fp.fp.IsLocked() or settings.rep_locked_drawings:
                 if settings.group_only:
                     if fp.fp.GetParentGroup():
-                        if fp.fp.GetParentGroup().GetName() == self.src_anchor_fp_group:
+                        if fp.fp.GetParentGroup().this == self.src_anchor_fp_group:
                             fps_for_replication.append(fp)
                 else:
                     fps_for_replication.append(fp)
@@ -1303,7 +1303,7 @@ class Replicator:
                 if not t.IsLocked() or settings.rep_locked_tracks:
                     if t.GetParentGroup():
                         logger.info(f"Track group: {t.GetParentGroup().GetName()}, src group:{self.src_anchor_fp_group}")
-                        if t.GetParentGroup().GetName() == self.src_anchor_fp_group:
+                        if t.GetParentGroup().this == self.src_anchor_fp_group:
                             if t.GetNetname() in nets_on_sheet:
                                 tracks_for_replication.append(t)
         else:
@@ -1324,7 +1324,7 @@ class Replicator:
                         else:
                             if settings.group_items and t.GetNetname() in nets_on_sheet:
                                 if t.GetParentGroup():
-                                    if self.src_anchor_fp_group == t.GetParentGroup().GetName():
+                                    if self.src_anchor_fp_group == t.GetParentGroup().this:
                                         tracks_for_replication.append(t)
         return tracks_for_replication
 
@@ -1347,7 +1347,7 @@ class Replicator:
             for z in all_zones:
                 if not z.IsLocked() or settings.rep_locked_zones:
                     if z.GetParentGroup():
-                        if z.GetParentGroup().GetName() == self.src_anchor_fp_group:
+                        if z.GetParentGroup().this == self.src_anchor_fp_group:
                             if z.GetNetname() in nets_on_sheet:
                                 zones_for_replication.append(z)
         else:
@@ -1368,7 +1368,7 @@ class Replicator:
                         else:
                             if settings.group_items and (z.GetNetname() in nets_on_sheet or z.GetIsRuleArea()):
                                 if z.GetParentGroup():
-                                    if self.src_anchor_fp_group == z.GetParentGroup().GetName():
+                                    if self.src_anchor_fp_group == z.GetParentGroup().this:
                                         zones_for_replication.append(z)
         return zones_for_replication
 
@@ -1386,7 +1386,7 @@ class Replicator:
             # get all drawings, and select only those belonging to group
             for t_i in text_items:
                 if t_i.GetParentGroup():
-                    if self.src_anchor_fp_group == t_i.GetParentGroup().GetName():
+                    if self.src_anchor_fp_group == t_i.GetParentGroup().this:
                         if not t_i.IsLocked() or settings.rep_locked_text:
                             text_items_for_replication.append(t_i)
         else:
@@ -1401,7 +1401,7 @@ class Replicator:
                     else:
                         if settings.group_items:
                             if t_i.GetParentGroup():
-                                if self.src_anchor_fp_group == t_i.GetParentGroup().GetName():
+                                if self.src_anchor_fp_group == t_i.GetParentGroup().this:
                                     if not t_i.IsLocked() or settings.rep_locked_drawings:
                                         text_items_for_replication.append(t_i)
                 else:
@@ -1411,7 +1411,7 @@ class Replicator:
                     else:
                         if settings.group_items:
                             if t_i.GetParentGroup():
-                                if self.src_anchor_fp_group == t_i.GetParentGroup().GetName():
+                                if self.src_anchor_fp_group == t_i.GetParentGroup().this:
                                     if not t_i.IsLocked() or settings.rep_locked_drawings:
                                         text_items_for_replication.append(t_i)
         return text_items_for_replication
@@ -1430,7 +1430,7 @@ class Replicator:
             # get all drawings, and select only those belonging to group
             for d in drawings:
                 if d.GetParentGroup():
-                    if self.src_anchor_fp_group == d.GetParentGroup().GetName():
+                    if self.src_anchor_fp_group == d.GetParentGroup().this:
                         if not d.IsLocked() or settings.rep_locked_drawings:
                             drawings_for_replication.append(d)
         else:
@@ -1445,7 +1445,7 @@ class Replicator:
                     else:
                         if settings.group_items:
                             if d.GetParentGroup():
-                                if self.src_anchor_fp_group == d.GetParentGroup().GetName():
+                                if self.src_anchor_fp_group == d.GetParentGroup().this:
                                     if not d.IsLocked() or settings.rep_locked_drawings:
                                         drawings_for_replication.append(d)
                 else:
@@ -1455,7 +1455,7 @@ class Replicator:
                     else:
                         if settings.group_items:
                             if d.GetParentGroup():
-                                if self.src_anchor_fp_group == d.GetParentGroup().GetName():
+                                if self.src_anchor_fp_group == d.GetParentGroup().this:
                                     if not d.IsLocked() or settings.rep_locked_drawings:
                                         drawings_for_replication.append(d)
         return drawings_for_replication
