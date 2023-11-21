@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #  replicate_layout.py
 #
-# Copyright (C) 2019-2022 Mitja Nemec
+# Copyright (C) 2019-2023 Mitja Nemec
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -130,8 +130,8 @@ class Replicator:
 
             sheet_id = self.get_sheet_id(fp)
             try:
-                sheet_file = fp.GetProperty('Sheetfile')
-                sheet_name = fp.GetProperty('Sheetname')
+                sheet_file = fp.GetSheetfile()
+                sheet_name = fp.GetSheetname()
             except KeyError:
                 logger.info("Footprint " + fp.GetReference() +
                             " does not have Sheetfile property, it will not be replicated."
@@ -163,8 +163,8 @@ class Replicator:
         # construct a list of all the footprints
         for fp in footprints:
             try:
-                sheet_file = fp.GetProperty('Sheetfile')
-                sheet_name = fp.GetProperty('Sheetname')
+                sheet_file = fp.GetSheetfile()
+                sheet_name = fp.GetSheetname()
                 fp_tuple = Footprint(fp=fp,
                                      fp_id=self.get_footprint_id(fp),
                                      sheet_id=self.get_sheet_path(fp)[0],
@@ -638,7 +638,7 @@ class Replicator:
 
         footprint_items = footprint.fp.GraphicalItems()
         for item in footprint_items:
-            if type(item) is pcbnew.FP_TEXT:
+            if type(item) is pcbnew.PCB_TEXT:
                 list_of_items.append(item)
         return list_of_items
 
