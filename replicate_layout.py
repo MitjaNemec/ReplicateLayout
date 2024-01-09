@@ -933,8 +933,8 @@ class Replicator:
                             len(dst_fp_text_items)) + ")")
 
                 # replicate each text item
-                src_text: pcbnew.FP_TEXT
-                dst_text: pcbnew.FP_TEXT
+                src_text: pcbnew.PCB_TEXT
+                dst_text: pcbnew.PCB_TEXT
                 for src_text in src_fp_text_items:
                     txt_index = src_fp_text_items.index(src_text)
                     src_txt_pos = src_text.GetPosition()
@@ -944,6 +944,8 @@ class Replicator:
                     dst_text = dst_fp_text_items[txt_index]
 
                     dst_text.SetLayer(src_text.GetLayer())
+                    # set text parameters
+                    dst_text.SetAttributes(src_text.GetAttributes())
                     # properly set position
                     if src_fp_flipped != dst_fp_flipped:
                         dst_text.Flip(dst_anchor_fp_position, False)
@@ -952,26 +954,14 @@ class Replicator:
                         dst_txt_rel_pos_rot = rotate_around_center(dst_txt_rel_pos, delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(dst_txt_rel_pos_rot[0], dst_txt_rel_pos_rot[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        dst_text.SetTextAngleDegrees(-src_txt_orientation)
+                        dst_text.SetTextAngleDegrees(-src_txt_orientation - anchor_delta_angle)
                         dst_text.SetMirrored(not src_text.IsMirrored())
                     else:
                         dst_txt_rel_pos = rotate_around_center(src_txt_rel_pos, -delta_angle)
                         dst_txt_pos = dst_fp_pos + pcbnew.VECTOR2I(dst_txt_rel_pos[0], dst_txt_rel_pos[1])
                         dst_text.SetPosition(dst_txt_pos)
-                        dst_text.SetTextAngleDegrees(src_txt_orientation)
+                        dst_text.SetTextAngleDegrees(src_txt_orientation - anchor_delta_angle)
                         dst_text.SetMirrored(src_text.IsMirrored())
-
-                    # set text parameters
-                    dst_text.SetTextThickness(src_text.GetTextThickness())
-                    dst_text.SetTextWidth(src_text.GetTextWidth())
-                    dst_text.SetTextHeight(src_text.GetTextHeight())
-                    dst_text.SetItalic(src_text.IsItalic())
-                    dst_text.SetBold(src_text.IsBold())
-                    dst_text.SetMultilineAllowed(src_text.IsMultilineAllowed())
-                    dst_text.SetHorizJustify(src_text.GetHorizJustify())
-                    dst_text.SetVertJustify(src_text.GetVertJustify())
-                    dst_text.SetKeepUpright(src_text.IsKeepUpright())
-                    dst_text.SetVisible(src_text.IsVisible())
 
     def replicate_tracks(self, settings):
         logger.info("Replicating tracks")
