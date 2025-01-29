@@ -413,7 +413,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         # search for the Replicate.Layout user layer where replication rooms can be defined
 
-        if 'Replicate.Layout' in [board.GetLayerName(x) for x in board.GetEnabledLayers().Users()]:
+        if 'Replicate.Layout' in [board.GetLayerName(x) for x in board.GetEnabledLayers().Seq()]:
             pass
 
         # prepare the replicator
