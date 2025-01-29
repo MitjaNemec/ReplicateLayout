@@ -922,7 +922,7 @@ class Replicator:
                 dst_fp.fp.SetLocalSolderMaskMargin(src_fp.fp.GetLocalSolderMaskMargin())
                 dst_fp.fp.SetLocalSolderPasteMargin(src_fp.fp.GetLocalSolderPasteMargin())
                 dst_fp.fp.SetLocalSolderPasteMarginRatio(src_fp.fp.GetLocalSolderPasteMarginRatio())
-                dst_fp.fp.SetZoneConnection(src_fp.fp.GetZoneConnection())
+                dst_fp.fp.SetLocalZoneConnection(src_fp.fp.GetLocalZoneConnection())
 
                 # add footprints to corresponding layout groups if selected
                 # and if footprint is not already member of this group
