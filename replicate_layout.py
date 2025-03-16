@@ -416,8 +416,8 @@ class Replicator:
                 dst_group = "Replicated Group {}".format(sheet)
                 if (fp_group is not None) and (fp_group != dst_group):
                     raise LookupError(f"Destination footprint {fp} is a member of a different group ({fp_group}). "
-                                      f"All destination plugin have either have to be members of destination group ({dst_group})"
-                                      f" or no group at all.")
+                                      f"All destination footprints have either have to be members of destination group "
+                                      f"({dst_group}) or no group at all.")
 
     @staticmethod
     def get_footprint_id(footprint):

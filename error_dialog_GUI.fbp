@@ -17,7 +17,7 @@
         <property name="image_path_wrapper_function_name"></property>
         <property name="indent_with_spaces">1</property>
         <property name="internationalize">0</property>
-        <property name="name">SaveRestoreErrorDialog</property>
+        <property name="name">ReplicateLayoutErrorDialog</property>
         <property name="namespace"></property>
         <property name="path">.</property>
         <property name="precompiled_header"></property>
@@ -93,7 +93,7 @@
                         <property name="gripper">0</property>
                         <property name="hidden">0</property>
                         <property name="id">wxID_ANY</property>
-                        <property name="label">Fatal error when replicating layout. You can raise an issue on GiHub page.                    + &quot;Please attach the save_restore_layout.log which you should find in the project folder.</property>
+                        <property name="label">Fatal error when replicating layout. You can raise an issue on GitHub page.</property>
                         <property name="markup">0</property>
                         <property name="max_size"></property>
                         <property name="maximize_button">0</property>
@@ -154,7 +154,7 @@
                         <property name="gripper">0</property>
                         <property name="hidden">0</property>
                         <property name="id">wxID_ANY</property>
-                        <property name="label">You can raise an issue on GiHub page.</property>
+                        <property name="label">You can raise an issue on GitHub page.</property>
                         <property name="markup">0</property>
                         <property name="max_size"></property>
                         <property name="maximize_button">0</property>
