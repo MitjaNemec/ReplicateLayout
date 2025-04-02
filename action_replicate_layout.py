@@ -27,6 +27,7 @@ import sys
 import time
 from .replicate_layout_GUI import ReplicateLayoutGUI
 from .error_dialog_GUI import ErrorDialogGUI
+from .deprecation_dialog_GUI import DeprecationDialogGUI
 from .replicate_layout import Replicator
 from .replicate_layout import Settings
 from .conn_issue_GUI import ConnIssueGUI
@@ -58,6 +59,13 @@ class ErrorDialog(ErrorDialogGUI):
     def __init__(self, parent):
         super(ErrorDialog, self).__init__(parent)
 
+class DeprecationDialog(DeprecationDialogGUI):
+    def SetSizeHints(self, sz1, sz2):
+        # DO NOTHING
+        pass
+
+    def __init__(self, parent):
+        super(DeprecationDialog, self).__init__(parent)
 
 class ReplicateLayoutDialog(ReplicateLayoutGUI):
     def SetSizeHints(self, sz1, sz2):
@@ -356,6 +364,7 @@ class ReplicateLayout(pcbnew.ActionPlugin):
 
         # plugin paths
         self.plugin_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+        self.deprecation_file_path = os.path.join(self.plugin_folder, 'deprecation.null')
         self.version_file_path = os.path.join(self.plugin_folder, 'version.txt')
 
         # load the plugin version
@@ -369,9 +378,17 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         # grab PCB editor frame
         self.frame = wx.FindWindowByName("PcbFrame")
 
+        # issue deprecation warning only once
+        if not os.path.exists(self.deprecation_file_path):
+            d_dlg = DeprecationDialog(self.frame)
+            d_dlg.ShowModal()
+            d_dlg.Destroy()
+            # create empty file
+            with open(self.deprecation_file_path, 'w') as f:
+                f.write("")
+
         # load board
         board = pcbnew.GetBoard()
-        pass
 
         # go to the project folder - so that log will be in proper place
         os.chdir(os.path.dirname(os.path.abspath(board.GetFileName())))
