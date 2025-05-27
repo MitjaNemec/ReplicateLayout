@@ -832,9 +832,11 @@ class Replicator:
     def match_fp_in_list(footprint, fp_list):
         # find proper match in source footprints
         list_of_possible_dst_footprints = []
+        logger.info("Src fp.id: " + repr(footprint.fp_id))
         for d_fp in fp_list:
             if d_fp.fp_id == footprint.fp_id:
                 list_of_possible_dst_footprints.append(d_fp)
+                logger.info("Dst fp.id: " + repr(d_fp.fp_id))
 
         # if there is more than one possible anchor, select the correct one
         if len(list_of_possible_dst_footprints) == 1:
@@ -850,7 +852,7 @@ class Replicator:
                 list_of_matches.append((index, matches))
             # check if list is empty, if it is, then it is highly likely that schematics and pcb are not in sync
             if not list_of_matches:
-                raise LookupError("Can not find destination footprint for source footprint: " + repr(src_fp.ref)
+                raise LookupError("Can not find destination footprint for source footprint: " + repr(footprint.ref)
                                   + "\n" + "Most likely, schematics and PCB are not in sync")
             # select the one with most matches
             index, _ = max(list_of_matches, key=lambda item: item[1])
@@ -883,11 +885,14 @@ class Replicator:
             for fp_index in range(nr_footprints):
                 src_fp = src_footprints[fp_index]
 
+                logger.info("Replicating footprint: " + repr(src_fp.ref))
+
                 progress = progress + (1 / nr_sheets) * (1 / nr_footprints)
                 self.update_progress(self.stage, progress, None)
 
                 # find proper match in source footprints
                 dst_fp = self.match_fp_in_list(src_fp, dst_footprints)
+                logger.info("found match in dst footprint: " + repr(dst_fp.ref))
 
                 # skip locked footprints
                 if dst_fp.fp.IsLocked() is True and self.replicate_locked_footprints is False:
