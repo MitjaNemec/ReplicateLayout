@@ -23,6 +23,6 @@ By default, only objects which are fully contained in the bounding box constitut
 The preferred way to install the plugin is via KiCad's Plugin and Content Manager (PCM). Installation on non-networked devices can be done by downloading [the latest release](https://github.com/MitjaNemec/ReplicateLayout/releases/latest) and installing in the PCM using the `Install from file` option.
 
 **Author :** doc.dr. Mitja Nemec
-**Date :** 2022-2025
+**Date :** 2025
 
 
