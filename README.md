@@ -1,5 +1,7 @@
 # KiCAD Replicate Layout Plugin
 
+The repository includes code for KiCad Action plugin which replicates part of the PCB layout.
+
 Replicate the PCB layout of one hierarchical sheet to other hierarchical sheets. This replication is based upon hierarchical sheets in Eeschema. The basic requirement for replication is that the section to be replicated (source) is completely contained within a single hierarchical sheet, and replicated sections (destination) are just copies of the same sheet. Complex hierarchies are supported and the replicated sheet can contain subsheets. The plugin replicates footprints, zones, tracks, text and drawings.
 
 After the section for replication (source section) has been laid out (footprints, tracks, text objects and zones placed) you need to:
@@ -19,3 +21,8 @@ By default, only objects which are fully contained in the bounding box constitut
 ## Installation
 
 The preferred way to install the plugin is via KiCad's Plugin and Content Manager (PCM). Installation on non-networked devices can be done by downloading [the latest release](https://github.com/MitjaNemec/ReplicateLayout/releases/latest) and installing in the PCM using the `Install from file` option.
+
+**Author :** doc.dr. Mitja Nemec
+**Date :** 2022-2025
+
+
