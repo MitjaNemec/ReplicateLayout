@@ -374,6 +374,38 @@ class ReplicateLayout(pcbnew.ActionPlugin):
     def defaults(self):
         pass
 
+    def get_dialog_position(self, dlg_size, logger):
+        """Compute where to place the dialog, next to the right vertical toolbar.
+
+        KiCad 9 exposed ``pcbnew.ID_V_TOOLBAR`` which let us query the toolbar's
+        on-screen position. KiCad 10 removed that constant when the toolbars were
+        reworked, so we try it for backward compatibility and otherwise fall back
+        to the right edge of the PCB editor frame. Returns a ``wx.Point`` or
+        ``None`` (in which case the dialog keeps its centred position)."""
+        # KiCad 9 path: query the vertical toolbar directly
+        toolbar_id = getattr(pcbnew, 'ID_V_TOOLBAR', None)
+        if toolbar_id is not None and self.frame is not None:
+            try:
+                toolbar = self.frame.FindWindowById(toolbar_id)
+                if toolbar is not None:
+                    toolbar_pos = toolbar.GetScreenPosition()
+                    logger.info("Toolbar position: " + repr(toolbar_pos))
+                    return wx.Point(toolbar_pos[0] - dlg_size[0], toolbar_pos[1])
+            except Exception:
+                logger.info("Could not query toolbar position, using fallback")
+        # KiCad 10 fallback: place at the right edge of the editor frame
+        if self.frame is not None:
+            try:
+                frame_pos = self.frame.GetScreenPosition()
+                frame_size = self.frame.GetSize()
+                x = frame_pos[0] + frame_size[0] - dlg_size[0]
+                y = frame_pos[1] + 100
+                logger.info("Using frame-relative dialog position")
+                return wx.Point(x, y)
+            except Exception:
+                logger.info("Could not compute frame-relative position")
+        return None
+
     def Run(self):
         # grab PCB editor frame
         self.frame = wx.FindWindowByName("PcbFrame")
@@ -505,15 +537,16 @@ class ReplicateLayout(pcbnew.ActionPlugin):
         try:
             dlg = ReplicateLayoutDialog(self.frame, replicator, src_anchor_fp_reference, logger)
             dlg.CenterOnParent()
-            # find position of right toolbar
-            toolbar_pos = self.frame.FindWindowById(pcbnew.ID_V_TOOLBAR).GetScreenPosition()
-            logger.info("Toolbar position: " + repr(toolbar_pos))
-            # find site of dialog
+            # place the dialog next to the right (vertical) toolbar
+            # KiCad 9 exposed the toolbar window id as pcbnew.ID_V_TOOLBAR, but this
+            # constant was removed in KiCad 10 (the toolbars were reworked). Fall back
+            # gracefully to placing the dialog at the right edge of the editor frame so
+            # the plugin keeps working across both KiCad versions.
             size = dlg.GetSize()
-            # place the dialog by the right toolbar
-            dialog_position = wx.Point(toolbar_pos[0] - size[0], toolbar_pos[1])
-            logger.info("Dialog position: " + repr(dialog_position))
-            dlg.SetPosition(dialog_position)
+            dialog_position = self.get_dialog_position(size, logger)
+            if dialog_position is not None:
+                logger.info("Dialog position: " + repr(dialog_position))
+                dlg.SetPosition(dialog_position)
             dlg.Show()
         except Exception:
             logger.exception("Fatal error when making an instance of replicator")

@@ -1,7 +1,13 @@
 # KiCAD Replicate Layout Plugin
 
 > [!NOTE]
-> The functionality of this plugin is now available in KiCad natively! As such, this plugin is no longer updated. For details on KiCad's multichannel implementation, see [official KiCad documentation](https://docs.kicad.org/10.0/en/pcbnew/pcbnew.html#multichannel).
+> This change ports the plugin to **KiCad 10** (targets KiCad 10.0). KiCad 10
+> removed the `pcbnew.ID_V_TOOLBAR` constant the dialog relied on, which made the
+> plugin raise on every run (issue #87); this is fixed with a fallback that still
+> works on KiCad 9. It has been verified to reproduce the KiCad 9 behaviour exactly
+> (see *Testing* below). Similar functionality is also available in KiCad natively;
+> see the [official KiCad multichannel documentation](https://docs.kicad.org/10.0/en/pcbnew/pcbnew.html#multichannel).
+> The plugin remains useful for replication driven by hierarchical sheets.
 
 The repository includes code for KiCad Action plugin which replicates part of the PCB layout.
 
@@ -25,7 +31,32 @@ By default, only objects which are fully contained in the bounding box constitut
 
 The preferred way to install the plugin is via KiCad's Plugin and Content Manager (PCM). Installation on non-networked devices can be done by downloading [the latest release](https://github.com/MitjaNemec/ReplicateLayout/releases/latest) and installing in the PCM using the `Install from file` option.
 
+## Testing
+
+The plugin ships with a headless, GUI-free test-suite driven entirely through the
+pcbnew scripting API (`test_replicate_layout.py`). It runs a number of replication
+scenarios (inner/outer hierarchy levels, flipped anchors, "contained" vs.
+"intersecting" selection, removal of existing copper, grouping and footprint-text
+replication), plus regression tests for issue #86 (already-grouped destination
+footprints). Each replication result is checked for **geometric correctness**:
+every replicated section must keep the same internal geometry (pairwise distances,
+relative orientation and relative flip) as the source section. This check is
+independent of any coordinate convention, so it validates the result on its own
+merits.
+
+Run it with the Python interpreter bundled with KiCad, for example on macOS:
+
+```bash
+/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3.9 test_replicate_layout.py
+```
+
+The suite can additionally compare output against committed reference signatures to
+prove byte-for-byte parity with a previous KiCad version: run with `--gen-refs`
+under that KiCad (writing `test_refs/*.json`), then a normal run under the new KiCad
+verifies the output matches. This is how the KiCad 9 → 10 parity was confirmed.
+
 **Author :** doc.dr. Mitja Nemec
+**KiCad 10 port :** 2026
 **Date :** 2025
 
 

@@ -414,10 +414,14 @@ class Replicator:
             for fp in dst_sheet_fps:
                 fp_group = fp.fp.GetParentGroup()
                 dst_group = "Replicated Group {}".format(sheet)
-                if (fp_group is not None) and (fp_group != dst_group):
-                    raise LookupError(f"Destination footprint {fp} is a member of a different group ({fp_group}). "
-                                      f"All destination footprints have either have to be members of destination group "
-                                      f"({dst_group}) or no group at all.")
+                # GetParentGroup() returns a PCB_GROUP (or None), so compare its
+                # name to the expected destination group name. Comparing the object
+                # directly to the string is always unequal and made the plugin fail
+                # whenever a destination footprint was already grouped (issue #86).
+                if (fp_group is not None) and (fp_group.GetName() != dst_group):
+                    raise LookupError(f"Destination footprint {fp.ref} is a member of a different group "
+                                      f"({fp_group.GetName()}). All destination footprints either have to be "
+                                      f"members of the destination group ({dst_group}) or no group at all.")
 
     @staticmethod
     def get_footprint_id(footprint):

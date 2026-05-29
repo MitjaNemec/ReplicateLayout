@@ -1,162 +1,189 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import unittest
-import pcbnew
-import logging
-import sys
+#  test_replicate_layout.py
+#
+#  Headless test-suite for the ReplicateLayout plugin, driven entirely through
+#  the pcbnew scripting (SWIG) API so it can be run without the GUI:
+#
+#      <KiCad python> test_replicate_layout.py
+#
+#  e.g. on macOS:
+#      /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/\
+#          Versions/3.9/bin/python3.9 test_replicate_layout.py
+#
+#  Each scenario:
+#    1. loads a test project,
+#    2. runs a replication with a particular set of options,
+#    3. checks that the result is geometrically correct (every replicated
+#       section keeps the same internal geometry as the source section), and
+#    4. if a committed reference signature exists in test_refs/, checks that the
+#       produced geometry matches it (this reference was captured from KiCad 9,
+#       so a passing run proves the KiCad 10 behaviour matches KiCad 9).
+#
+#  Run with  --gen-refs  to (re)generate the reference signatures from the
+#  current KiCad, e.g. to capture a fresh KiCad 9 baseline.
+import json
 import os
-from compare_boards import compare_boards
-from replicate_layout import Replicator
-from replicate_layout import Settings
+import sys
+import unittest
+
+import pcbnew
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, HERE)
+
+from replicate_layout import Replicator, Settings  # noqa: E402
+import test_helpers  # noqa: E402
+
+REF_DIR = os.path.join(HERE, "test_refs")
+
+TP = "replicate_layout_test_project/replicate_layout_test_project.kicad_pcb"
+FT = "replicate_layout_fp_text/replicate_layout_fp_text.kicad_pcb"
+
+_GROUP = dict(group_layouts=True, group_footprints=True, group_tracks=True,
+              group_zones=True, group_text=True, group_drawings=True)
+
+# name, pcb, anchor, level index, sheet indices, settings overrides
+SCENARIOS = [
+    ("baseline_inner",     TP, "U701",  1, [1, 3, 7],      {}),
+    ("inner_all",          TP, "U701",  1, list(range(9)), {}),
+    ("flipped_anchor_alt", TP, "U1501", 0, [2, 4, 8],      {}),
+    ("outer_level",        TP, "U701",  0, [0, 1],         {}),
+    ("containing",         TP, "U701",  1, [1, 3, 7],      dict(intersecting=False)),
+    ("remove_existing",    TP, "U701",  1, [1, 3, 7],      dict(remove=True)),
+    ("groups",             TP, "U701",  1, [1, 3, 7],      _GROUP),
+    ("no_tracks_zones",    TP, "U701",  1, [1, 3, 7],      dict(rep_tracks=False, rep_zones=False)),
+    ("fp_text",            FT, "R364",  0, [0, 1],         {}),
+]
 
 
-def update_progress(stage, percentage, message=None):
-    print(stage)
-    print(percentage)
-    if message is not None:
-        print(message)
+def _settings(overrides):
+    d = dict(rep_tracks=True, rep_zones=True, rep_text=True, rep_drawings=True,
+             group_layouts=False, group_footprints=False, group_tracks=False,
+             group_zones=False, group_text=False, group_drawings=False,
+             rep_locked_tracks=True, rep_locked_zones=True, rep_locked_text=True,
+             rep_locked_drawings=True, intersecting=True, group_items=True,
+             group_only=False, locked_fps=False, remove=False)
+    d.update(overrides)
+    return Settings(**d)
 
 
-def test_file(in_filename, test_filename, src_anchor_fp_reference, level, sheets, containing, remove, by_group):
-    board = pcbnew.LoadBoard(in_filename)
-    # get board information
-    replicator = Replicator(board, src_anchor_fp_reference, update_progress)
-    # get source footprint info
-    src_anchor_fp = replicator.get_fp_by_ref(src_anchor_fp_reference)
-    # check if there are at least two sheets pointing to same hierarchical file that the source anchor footprint belongs to
-    count = 0
-    for filename in replicator.dict_of_sheets.values():
-        if filename[1] in src_anchor_fp.filename:
-            count = count + 1
-    if count < 2:
-        raise Exception
-    # check if source anchor footprint is on root level
-    if len(src_anchor_fp.filename) == 0:
-        raise Exception
+def run_scenario(pcb_rel, anchor, level, sheets, overrides):
+    """Run one replication; return (board, anchor, src_refs, dst_sections)."""
+    board = pcbnew.LoadBoard(os.path.join(HERE, pcb_rel))
 
-    # have the user select replication level
-    levels = src_anchor_fp.filename
-    # get the level index from user
-    index = levels.index(levels[level])
-    # get list of sheets
-    sheet_list = replicator.get_sheets_to_replicate(src_anchor_fp, src_anchor_fp.sheet_id[index])
+    def prog(stage, pct, msg=None):
+        pass
 
-    # get anchor footprints
-    anchor_footprints = replicator.get_list_of_footprints_with_same_id(src_anchor_fp.fp_id)
-    # find matching anchors to matching sheets
-    ref_list = []
-    for sheet in sheet_list:
-        for fp in anchor_footprints:
-            a = sheet
-            b = fp.sheet_id
-            if sheet == fp.sheet_id:
-                ref_list.append(fp.ref)
-                break
+    rep = Replicator(board, anchor, prog)
+    src = rep.get_fp_by_ref(anchor)
+    sheet_list = rep.get_sheets_to_replicate(src, src.sheet_id[level])
+    dst = [sheet_list[i] for i in sheets]
+    settings = _settings(overrides)
+    lvl = src.sheet_id[0:level + 1]
 
-    # get the list selection from user
-    dst_sheets = [sheet_list[i] for i in sheets]
+    # exercise the highlight code paths too
+    fps, items = rep.highlight_set_level(lvl, settings)
+    rep.highlight_clear_level(fps, items)
 
-    settings = Settings(rep_tracks=True, rep_zones=True, rep_text=True, rep_drawings=True,
-                        rep_locked_tracks=True, rep_locked_zones=True, rep_locked_text=True, rep_locked_drawings=True,
-                        intersecting=not containing,
-                        group_items=True,
-                        group_only=False, locked_fps=False,
-                        remove=False)
+    rep.replicate_layout(src, lvl, dst, settings, rm_duplicates=True)
 
-    (fps, items) = replicator.highlight_set_level(src_anchor_fp.sheet_id[0:index + 1],
-                                                  settings)
-    replicator.highlight_clear_level(fps, items)
-
-    # now we are ready for replication
-    replicator.replicate_layout(src_anchor_fp, src_anchor_fp.sheet_id[0:index + 1], dst_sheets,
-                                settings, rm_duplicates=True)
-    out_filename = test_filename.replace("ref", "temp")
-    pcbnew.SaveBoard(out_filename, board)
-    # test for connectivity isuues
-    if replicator.connectivity_issues:
-        report_string = ""
-        for item in replicator.connectivity_issues:
-            report_string = report_string + f"Footprint {item[0]}, pad {item[1]}\n"
-        print(f"Make sure that you check the connectivity around:\n" + report_string)
-
-    print("comparing boards")
-    #return compare_boards(out_filename, test_filename)
-
-@unittest.skip
-class TestBrackets(unittest.TestCase):
-    def setUp(self):
-        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "brackets"))
-
-    def test_inner(self):
-        logger.info("Testing multiple hierarchy - inner levels")
-        input_filename = 'replicate_layout_test_project.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'U701', level=1, sheets=(1, 3, 7),
-                        containing=False, remove=False, by_group=True)
-        self.assertEqual(err, 0, "inner levels failed")
+    src_refs = [f.ref for f in rep.src_footprints]
+    dst_sections = []
+    for sheet in dst:
+        sheet_fps = rep.get_footprints_on_sheet(sheet)
+        dst_sections.append([rep.match_fp_in_list(sfp, sheet_fps).ref
+                             for sfp in rep.src_footprints])
+    return board, anchor, src_refs, dst_sections
 
 
-class TestFpText(unittest.TestCase):
-    def setUp(self):
-        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "bug-demo"))
+class ReplicateLayoutTests(unittest.TestCase):
+    pass
 
+
+def _make_test(name, pcb, anchor, level, sheets, overrides):
     def test(self):
-        logger.info("Testin fp text replication")
-        input_filename = 'controller-led-matrix.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'U1', level=0, sheets=(0, 1),
-                        containing=False, remove=False, by_group=False)
-        self.assertEqual(err, 0, "inner levels failed")
+        board, a, src_refs, dst_sections = run_scenario(pcb, anchor, level, sheets, overrides)
+
+        # 1. convention-independent geometric correctness
+        ok, problems = test_helpers.geometric_consistency(board, a, src_refs, dst_sections)
+        self.assertTrue(ok, "geometric check failed:\n" + "\n".join(problems[:20]))
+
+        # 2. regression against committed (KiCad 9) reference signature
+        ref_path = os.path.join(REF_DIR, name + ".json")
+        if os.path.exists(ref_path):
+            sig = test_helpers.board_signature(board)
+            with open(ref_path) as fh:
+                ref = json.load(fh)["signature"]
+            diffs = test_helpers.compare_signatures(ref, sig)
+            self.assertEqual(diffs, [], "signature differs from reference:\n"
+                             + "\n".join(diffs[:20]))
+    return test
 
 
-@unittest.skip
-class TestOfficial(unittest.TestCase):
-    def setUp(self):
-        os.chdir(os.path.join(os.path.dirname(os.path.realpath(__file__)), "replicate_layout_test_project"))
-
-    def test_inner(self):
-        logger.info("Testing multiple hierarchy - inner levels")
-        input_filename = 'replicate_layout_test_project.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_ref_inner" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'U701', level=1, sheets=(1, 3, 7),
-                        containing=False, remove=False, by_group=True)
-        self.assertEqual(err, 0, "inner levels failed")
-
-    def test_inner_alt(self):
-        logger.info("Testing multiple hierarchy - inner levels")
-        input_filename = 'replicate_layout_test_project.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_ref_inner_alt" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'U1501', level=0, sheets=(2, 4, 8),
-                        containing=False, remove=False, by_group=True)
-        self.assertEqual(err, 0, "inner levels failed")
-
-    @unittest.skip
-    def test_outer(self):
-        logger.info("Testing multiple hierarchy - inner levels")
-        input_filename = 'replicate_layout_test_project.kicad_pcb'
-        test_filename = input_filename.split('.')[0] + "_ref_outer" + ".kicad_pcb"
-        err = test_file(input_filename, test_filename, 'U701', level=0, sheets=(0, 1),
-                        containing=False, remove=False, by_group=True)
-        self.assertEqual(err, 0, "outer levels failed")
+for _scn in SCENARIOS:
+    setattr(ReplicateLayoutTests, "test_" + _scn[0], _make_test(*_scn))
 
 
-# for testing purposes only
+class Issue86Tests(unittest.TestCase):
+    """Regression for issue #86: destination footprints that are already in the
+    matching 'Replicated Group ...' group (e.g. on a re-run) must not make the
+    plugin raise. The original code compared the PCB_GROUP object to a string,
+    which is always unequal, so any grouped destination footprint aborted the run."""
+
+    def _setup(self):
+        board = pcbnew.LoadBoard(os.path.join(HERE, TP))
+        rep = Replicator(board, "U701", lambda *a, **k: None)
+        src = rep.get_fp_by_ref("U701")
+        sheet_list = rep.get_sheets_to_replicate(src, src.sheet_id[1])
+        dst = [sheet_list[i] for i in [1, 3, 7]]
+        lvl = src.sheet_id[0:2]
+        return board, rep, src, dst, lvl
+
+    def test_matching_group_does_not_raise(self):
+        board, rep, src, dst, lvl = self._setup()
+        first = dst[0]
+        grp = pcbnew.PCB_GROUP(None)
+        grp.SetName("Replicated Group {}".format(first))
+        board.Add(grp)
+        for fp in rep.get_footprints_on_sheet(first):
+            grp.AddItem(fp.fp)
+        settings = _settings({})  # group_layouts off, so the group is not recreated
+        try:
+            rep.replicate_layout(src, lvl, dst, settings, rm_duplicates=True)
+        except LookupError as e:
+            self.fail("replication wrongly raised for a correctly grouped "
+                      "destination footprint (issue #86): %s" % e)
+
+    def test_foreign_group_still_raises(self):
+        # the guard must still fire for a footprint in an unrelated group
+        board, rep, src, dst, lvl = self._setup()
+        first = dst[0]
+        grp = pcbnew.PCB_GROUP(None)
+        grp.SetName("Some Unrelated Group")
+        board.Add(grp)
+        for fp in rep.get_footprints_on_sheet(first):
+            grp.AddItem(fp.fp)
+        settings = _settings({})
+        with self.assertRaises(LookupError):
+            rep.replicate_layout(src, lvl, dst, settings, rm_duplicates=True)
+
+
+def gen_refs():
+    os.makedirs(REF_DIR, exist_ok=True)
+    for (name, pcb, anchor, level, sheets, overrides) in SCENARIOS:
+        board, a, src_refs, dst_sections = run_scenario(pcb, anchor, level, sheets, overrides)
+        ok, problems = test_helpers.geometric_consistency(board, a, src_refs, dst_sections)
+        sig = test_helpers.board_signature(board)
+        out = {"build": pcbnew.GetBuildVersion(), "geometric_ok": ok, "signature": sig}
+        with open(os.path.join(REF_DIR, name + ".json"), "w") as fh:
+            json.dump(out, fh, indent=1)
+        print("wrote ref %-20s geo_ok=%s (%s)" % (name, ok, pcbnew.GetBuildVersion()))
+
+
 if __name__ == "__main__":
-    file_handler = logging.FileHandler(filename='replicate_layout.log', mode='w')
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    handlers = [file_handler, stdout_handler]
-
-    logging_level = logging.INFO
-
-    logging.basicConfig(level=logging_level,
-                        format='%(asctime)s %(name)s %(lineno)d:%(message)s',
-                        datefmt='%m-%d %H:%M:%S',
-                        handlers=handlers
-                        )
-
-    logger = logging.getLogger(__name__)
-    logger.info("Plugin executed on: " + repr(sys.platform))
-    logger.info("Plugin executed with python version: " + repr(sys.version))
-    logger.info("KiCad build version: " + str(pcbnew.GetBuildVersion()))
-
-    unittest.main()
+    print("KiCad build:", pcbnew.GetBuildVersion(), "| python:", sys.version.split()[0])
+    if "--gen-refs" in sys.argv:
+        gen_refs()
+    else:
+        unittest.main(verbosity=2)

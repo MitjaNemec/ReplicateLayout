@@ -97,7 +97,7 @@
             <property name="gripper">0</property>
             <property name="hidden">0</property>
             <property name="id">wxID_ANY</property>
-            <property name="label">&lt;b&gt;Deprecation warrning&lt;/b&gt;</property>
+            <property name="label">&lt;b&gt;Notice&lt;/b&gt;</property>
             <property name="markup">1</property>
             <property name="max_size"></property>
             <property name="maximize_button">0</property>
@@ -159,7 +159,7 @@
             <property name="gripper">0</property>
             <property name="hidden">0</property>
             <property name="id">wxID_ANY</property>
-            <property name="label">This plugin will only be supported until KiCad 10.0 is released</property>
+            <property name="label">This plugin has been ported to work with KiCad 10.</property>
             <property name="markup">0</property>
             <property name="max_size"></property>
             <property name="maximize_button">0</property>
@@ -221,7 +221,7 @@
             <property name="gripper">0</property>
             <property name="hidden">0</property>
             <property name="id">wxID_ANY</property>
-            <property name="label">After KiCad 10.0 is released I will neither port the plugin neither continue with maintenance.</property>
+            <property name="label">Note: KiCad 10 also includes a native multichannel layout tool. This plugin remains available for hierarchical-sheet based replication and continues to work on KiCad 10.</property>
             <property name="markup">0</property>
             <property name="max_size"></property>
             <property name="maximize_button">0</property>

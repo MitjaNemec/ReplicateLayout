@@ -8,6 +8,8 @@ inkscape replicate_layout_light.svg -w 64 -h 64 -o replicate_layout.png
 # refresh the GUI design
 wxformbuilder -g replicate_layout_GUI.fbp
 wxformbuilder -g error_dialog_GUI.fbp
+wxformbuilder -g conn_issue_dialog_GUI.fbp
+wxformbuilder -g deprecation_dialog_GUI.fbp
 
 # grab version and parse it into metadata.json
 cp metadata_source.json metadata_package.json

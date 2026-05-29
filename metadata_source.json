@@ -24,8 +24,8 @@
         {
             "version": "VERSION",
             "status": "stable",
-            "kicad_version": "9.0",
-            "kicad_version_max": "9.1",
+            "kicad_version": "10.0",
+            "kicad_version_max": "10.99",
             "download_url": "https://github.com/MitjaNemec/ReplicateLayout/releases/download/VERSION/ReplicateLayout-VERSION-pcm.zip",
             "download_sha256": "SHA256",
             "download_size": DOWNLOAD_SIZE,
