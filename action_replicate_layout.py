@@ -153,15 +153,47 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
 
         # get anchor footprints
         anchor_footprints = self.replicator.get_list_of_footprints_with_same_id(self.src_anchor_fp.fp_id)
+        logging.info(f"possible dst fp: {[x.ref for x in anchor_footprints]}")
+
+        src_fps = self.replicator.get_footprints_on_sheet(self.src_anchor_fp.sheet_id)
+        src_nets = self.replicator.get_nets_from_footprints(src_fps)
+        logging.info(f"src nets: {src_nets}")
+        logging.info(f"norm nets: {sorted([self.replicator.normalize_net(x) for x in src_nets])}")
+        src_net_dict = {self.replicator.normalize_net(x) for x in src_nets}
+
         # find matching anchors to matching sheets
         ref_list = []
         for sheet in list_sheets_choices:
+            all_fps = []
             for pf in anchor_footprints:
+                logging.info(f"dst fp: {pf.ref}, sheet path: {"/".join(sheet)}, fp path: {"/".join(pf.sheet_id)}")
                 if "/".join(sheet) in "/".join(pf.sheet_id):
-                    ref_list.append(pf.ref)
-                    break
+                    all_fps.append(pf.ref)
+            if (len(all_fps) == 1):
+                ref_list.append(all_fps[0])
+            # more than one footprint on the same sheet, we need to filter by nets
+            else:
+                matching_nets = []
+                for ref_fp in all_fps:
+                    logging.info(f"checking dst fp: {ref_fp}")
+                    dst_fp = self.replicator.get_fp_by_ref(ref_fp)
+                    dst_fps = self.replicator.get_footprints_on_sheet(dst_fp.sheet_id)
+                    dst_nets = self.replicator.get_nets_from_footprints(dst_fps)
+                    logging.info(f"dst nets: {dst_nets}")
+                    logging.info(f"norm dst nets: {sorted([self.replicator.normalize_net(x) for x in dst_nets])}")
+                    dst_net_dict = {self.replicator.normalize_net(x) for x in dst_nets}
+                    matching_nets_count = len(src_net_dict & dst_net_dict)
+                    logging.info(f"matching nets: {src_net_dict & dst_net_dict}")
+                    matching_nets.append((ref_fp, matching_nets_count))
+                # select the footprint with the most matching nets
+                matching_nets.sort(key=lambda x: x[1], reverse=True)
+                logging.info(f"matching nets count: {matching_nets}")
+                ref_list.append(matching_nets[0][0])
+
+        logging.info(f"list of found dst fps: {ref_list}")
 
         sheets_for_list = ['/'.join(x[0]) + " (" + x[1] + ")" for x in zip(list_sheets_choices, ref_list)]
+        logging.info(f"list of sheets for listbox: {sheets_for_list}")
         # clear levels
         self.sheet_selection = self.list_sheets.GetSelections()
 

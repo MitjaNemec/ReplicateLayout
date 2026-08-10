@@ -26,6 +26,7 @@ import logging
 import itertools
 import math
 from difflib import SequenceMatcher
+import re
 try:
     from .remove_duplicates import remove_duplicates
 except:
@@ -485,9 +486,11 @@ class Replicator:
 
         # get all footprints with same ID
         footprints_with_same_id = self.get_list_of_footprints_with_same_id(reference_footprint.fp_id)
+        logger.info(f"possible dst fps are: {[x.ref for x in footprints_with_same_id]}")
 
         # if hierarchy is deeper, match only the sheets with same hierarchy from root to -1
         sheets_on_same_level = []
+        dst_fps = []
         # go through all the footprints
         for fp in footprints_with_same_id:
             # if the footprint is on selected level, it's sheet is added to the list of sheets on this level
@@ -499,6 +502,9 @@ class Replicator:
                     if fp.filename[i] == level_file:
                         break
                 sheets_on_same_level.append(sheet_id_list)
+                dst_fps.append(fp)
+
+        logger.info(f"dst fps are: {[x.ref for x in dst_fps]}")
 
         # remove duplicates
         sheets_on_same_level.sort()
@@ -547,6 +553,33 @@ class Replicator:
             if level != fp.sheet_id[0:level_depth]:
                 footprints_not_on_sheet.append(fp)
         return footprints_not_on_sheet
+
+    @staticmethod
+    def normalize_net(net):
+        # Power nets
+        if net in {"GND", "+15V", "-15V"}:
+            return net
+
+        # Net-(U701A--) -> Net-(A--)
+        m = re.match(r"Net-\(U\d+([^)]+)\)", net)
+        if m:
+            return f"Net-({m.group(1)})"
+
+        # Hierarchical labels:
+        # /Cascade/low_pass/out -> low_pass/out
+        # /Cascade1/low_pass1/mid -> low_pass/mid
+        if net.startswith('/'):
+            parts = net.strip('/').split('/')
+
+            # drop top-level sheet name
+            parts = parts[1:]
+
+            # remove numeric suffixes from sheet names
+            parts = [re.sub(r'\d+$', '', p) for p in parts]
+
+            return '/'.join(parts)
+
+        return net
 
     @staticmethod
     def get_nets_from_footprints(footprints):
@@ -1068,7 +1101,7 @@ class Replicator:
                     if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                         new_track.Flip(dst_anchor_fp_position, False)
                         delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
-                        rot_angle = delta_angle - 180
+                        rot_angle = delta_angle
                         new_track.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.DEGREES_T))
                     else:
                         new_track.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
@@ -1151,14 +1184,14 @@ class Replicator:
                     #to_net_item = self.netdict.GetNetItem(to_net_name)
 
                 # make a duplicate, move it, rotate it, select proper net and add it to the board
-                new_zone = zone.Duplicate().Cast()
+                new_zone = zone.Duplicate(False).Cast()
                 new_zone.Move(move_vector)
                 new_zone.SetNetCode(to_net_code)
                 #new_zone.SetNet(to_net_item)
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_zone.Flip(dst_anchor_fp_position, False)
                     delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
-                    rot_angle = delta_angle - 180
+                    rot_angle = delta_angle
                     new_zone.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.DEGREES_T))
                 else:
                     new_zone.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
@@ -1209,7 +1242,7 @@ class Replicator:
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
                     new_text.Flip(dst_anchor_fp_position, False)
                     delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
-                    rot_angle = delta_angle - 180
+                    rot_angle = delta_angle
                     new_text.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.DEGREES_T))
                 else:
                     new_text.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
@@ -1246,25 +1279,47 @@ class Replicator:
 
             move_vector = dst_anchor_fp_position - src_anchor_fp_position
             delta_orientation = dst_anchor_fp_angle - src_anchor_fp_angle
+            net_pairs = self.get_net_pairs(sheet)
+            net_pairs_map = dict(net_pairs)
 
             # go through all the drawings
             nr_drawings = len(self.src_drawings)
+            logger.info(f"replicating {nr_drawings} drawins")
             for dw_index in range(nr_drawings):
                 drawing = self.src_drawings[dw_index]
                 progress = progress + (1 / nr_sheets) * (1 / nr_drawings)
                 self.update_progress(self.stage, progress, None)
 
                 new_drawing = drawing.Duplicate().Cast()
+
+                # KiCad 10 drawings can be connected to a net. Remap that net
+                # in the same way as tracks and zones.
+                if hasattr(drawing, "IsConnected") and drawing.IsConnected() and hasattr(drawing, "GetNetname"):
+                    from_net_name = drawing.GetNetname()
+                    if from_net_name:
+                        to_net_name = net_pairs_map.get(from_net_name)
+                        if to_net_name is None:
+                            logger.info("When replicating drawing from source net " + repr(from_net_name) +
+                                        " we did not find matching destination net, skipping item")
+                            continue
+                        to_net_item = self.netdict.GetNetItem(to_net_name)
+                        if hasattr(new_drawing, "SetNetCode"):
+                            new_drawing.SetNetCode(to_net_item.GetNetCode())
+                        elif hasattr(new_drawing, "SetNet"):
+                            new_drawing.SetNet(to_net_item)
+
                 new_drawing.Move(move_vector)
 
                 if self.src_anchor_fp.fp.IsFlipped() != dst_anchor_fp.fp.IsFlipped():
 
                     new_drawing.Flip(dst_anchor_fp_position, False)
                     delta_angle = flipped_angle(src_anchor_fp_angle) - dst_anchor_fp_angle
-                    rot_angle = delta_angle - 180
+                    rot_angle = delta_angle
                     new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(-rot_angle, pcbnew.DEGREES_T))
+                    logger.info(f"replicating flipped drawing at {new_drawing.GetCenter()}")
                 else:
                     new_drawing.Rotate(dst_anchor_fp_position, pcbnew.EDA_ANGLE(delta_orientation, pcbnew.DEGREES_T))
+                    logger.info(f"replicating non-flipped drawing at {new_drawing.GetCenter()}")
 
                 # prevent drawings from being added into source group
                 if source_group is not None:
@@ -1459,6 +1514,11 @@ class Replicator:
 
     def get_drawings_for_replication(self, level, bounding_box, settings):
         drawings_for_replication = []
+
+        def append_once(item):
+            if item not in drawings_for_replication:
+                drawings_for_replication.append(item)
+
         # get all drawings on PCB
         drawings = []
         for d in self.board.GetDrawings():
@@ -1479,7 +1539,7 @@ class Replicator:
                 if d.GetParentGroup():
                     if self.src_anchor_fp_group == d.GetParentGroup().GetName():
                         if not d.IsLocked() or settings.rep_locked_drawings:
-                            drawings_for_replication.append(d)
+                            append_once(d)
         else:
             for d in drawings:
                 d_bb = d.GetBoundingBox()
@@ -1487,7 +1547,7 @@ class Replicator:
                     # append those drawings which are inside bounding box
                     if bounding_box.Intersects(d_bb):
                         if not d.IsLocked() or settings.rep_locked_drawings:
-                            drawings_for_replication.append(d)
+                            append_once(d)
                     # append outside drawings append only if required
                     else:
                         # either drawing is in the group
@@ -1495,21 +1555,24 @@ class Replicator:
                             if d.GetParentGroup():
                                 if self.src_anchor_fp_group == d.GetParentGroup().GetName():
                                     if not d.IsLocked() or settings.rep_locked_drawings:
-                                        drawings_for_replication.append(d)
+                                        append_once(d)
                         # or it might be connected to internal net
-                        if d.IsConnected():
+                        if hasattr(d, "IsConnected") and d.IsConnected() and hasattr(d, "GetNetname"):
                             if d.GetNetname() in nets_exclusively_on_sheet:
-                                drawings_for_replication.append(d)
+                                append_once(d)
                 else:
                     if bounding_box.Contains(d_bb):
                         if not d.IsLocked() or settings.rep_locked_drawings:
-                            drawings_for_replication.append(d)
+                            append_once(d)
                     else:
                         if settings.group_items:
                             if d.GetParentGroup():
                                 if self.src_anchor_fp_group == d.GetParentGroup().GetName():
                                     if not d.IsLocked() or settings.rep_locked_drawings:
-                                        drawings_for_replication.append(d)
+                                        append_once(d)
+                        if hasattr(d, "IsConnected") and d.IsConnected() and hasattr(d, "GetNetname"):
+                            if d.GetNetname() in nets_exclusively_on_sheet:
+                                append_once(d)
         return drawings_for_replication
 
     def highlight_set_level(self, level, settings):

@@ -1,7 +1,7 @@
 (kicad_sch
-	(version 20231120)
+	(version 20260306)
 	(generator "eeschema")
-	(generator_version "7.99")
+	(generator_version "10.0")
 	(uuid "860228ff-27ec-4e54-8fdf-8687145181e5")
 	(paper "A4")
 	(lib_symbols)
@@ -38,7 +38,6 @@
 	(hierarchical_label "in"
 		(shape input)
 		(at 38.1 63.5 180)
-		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -50,7 +49,6 @@
 	(hierarchical_label "out"
 		(shape output)
 		(at 95.25 63.5 0)
-		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -62,17 +60,23 @@
 	(sheet
 		(at 69.85 57.15)
 		(size 12.7 12.7)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(stroke
 			(width 0.1524)
 			(type solid)
 		)
 		(fill
-			(color 0 0 0 0.0000)
+			(color 0 0 0 0)
 		)
 		(uuid "5373f2bb-9d53-4847-a6f8-a066e3ee75b5")
 		(property "Sheetname" "low_pass1"
 			(at 69.85 56.4384 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -82,6 +86,8 @@
 		)
 		(property "Sheetfile" "low_pass.kicad_sch"
 			(at 69.85 70.4346 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -91,28 +97,37 @@
 		)
 		(pin "out" output
 			(at 82.55 63.5 0)
+			(uuid "cd960e72-6b7f-4a77-a01e-4a7d4751aa22")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify right)
 			)
-			(uuid "cd960e72-6b7f-4a77-a01e-4a7d4751aa22")
 		)
 		(pin "in" input
 			(at 69.85 63.5 180)
+			(uuid "f3f0ee33-6656-4efd-9d0a-60b540f342e6")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
 			)
-			(uuid "f3f0ee33-6656-4efd-9d0a-60b540f342e6")
 		)
 		(instances
 			(project "replicate_layout_test_project"
 				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/4ca1ab63-9c14-412d-87f4-6aa38cef6e23"
 					(page "4")
+				)
+				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/22b92363-03f5-44db-b14f-8953f0f635c9"
+					(page "9")
+				)
+				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/5ba9b64b-8d37-455c-abcf-29859e5ab8df"
+					(page "11")
+				)
+				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/2cf73403-1c6c-45fb-8b05-dd922a741106"
+					(page "13")
 				)
 			)
 		)
@@ -120,17 +135,23 @@
 	(sheet
 		(at 44.45 57.15)
 		(size 12.7 12.7)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
 		(fields_autoplaced yes)
 		(stroke
 			(width 0.1524)
 			(type solid)
 		)
 		(fill
-			(color 0 0 0 0.0000)
+			(color 0 0 0 0)
 		)
 		(uuid "76ec9d82-785d-40b9-8c12-2a92b321b773")
 		(property "Sheetname" "low_pass"
 			(at 44.45 56.4384 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -140,6 +161,8 @@
 		)
 		(property "Sheetfile" "low_pass.kicad_sch"
 			(at 44.45 70.4346 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -149,23 +172,39 @@
 		)
 		(pin "out" output
 			(at 57.15 63.5 0)
+			(uuid "179adb92-0913-4cc8-88ef-e2cae74fb1da")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify right)
 			)
-			(uuid "179adb92-0913-4cc8-88ef-e2cae74fb1da")
 		)
 		(pin "in" input
 			(at 44.45 63.5 180)
+			(uuid "c04d32c6-d9ba-41e5-8fd3-165d457109c2")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left)
 			)
-			(uuid "c04d32c6-d9ba-41e5-8fd3-165d457109c2")
+		)
+		(instances
+			(project "replicate_layout_test_project"
+				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/4ca1ab63-9c14-412d-87f4-6aa38cef6e23"
+					(page "7")
+				)
+				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/22b92363-03f5-44db-b14f-8953f0f635c9"
+					(page "8")
+				)
+				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/5ba9b64b-8d37-455c-abcf-29859e5ab8df"
+					(page "10")
+				)
+				(path "/f74f526d-8f11-48ad-9d53-7c2f3f9650e8/2cf73403-1c6c-45fb-8b05-dd922a741106"
+					(page "12")
+				)
+			)
 		)
 	)
 )
