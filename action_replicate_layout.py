@@ -166,7 +166,7 @@ class ReplicateLayoutDialog(ReplicateLayoutGUI):
         for sheet in list_sheets_choices:
             all_fps = []
             for pf in anchor_footprints:
-                logging.info(f"dst fp: {pf.ref}, sheet path: {"/".join(sheet)}, fp path: {"/".join(pf.sheet_id)}")
+                logging.info(f"dst fp: {pf.ref}, sheet path: {'/'.join(sheet)}, fp path: {'/'.join(pf.sheet_id)}")
                 if "/".join(sheet) in "/".join(pf.sheet_id):
                     all_fps.append(pf.ref)
             if (len(all_fps) == 1):
